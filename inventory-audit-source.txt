@@ -1,0 +1,3777 @@
+
+
+==================== .\packages\client\src\game\inventory\InventoryManager.ts ====================
+
+export interface ClientInventoryItem {
+    id: string;
+    itemId: number;
+    itemName: string;
+    quantity: number;
+    slot: number;
+    instanceId: string | null;
+    refineLevel: number;
+}
+
+export class InventoryManager {
+    private items: Map<string, ClientInventoryItem> = new Map();
+
+    setInventory(items: ClientInventoryItem[]) {
+        this.items.clear();
+
+        for (const item of items) {
+            this.items.set(item.id, item);
+        }
+
+        console.log(
+            `[InventoryManager] Inventory loaded: ` +
+            `${this.items.size} entries`,
+        );
+
+        for (const item of this.items.values()) {
+            console.log(
+                `[InventoryManager] ` +
+                `${item.itemName} (${item.itemId}) ` +
+                `x${item.quantity} ` +
+                `slot=${item.slot}`,
+            );
+        }
+    }
+
+    upsertItem(item: ClientInventoryItem) {
+        this.items.set(item.id, item);
+    }
+
+    removeItem(inventoryId: string) {
+        this.items.delete(inventoryId);
+    }
+
+    getItems(): ClientInventoryItem[] {
+        return Array.from(this.items.values());
+    }
+
+    getItem(
+        inventoryId: string,
+    ): ClientInventoryItem | undefined {
+        return this.items.get(inventoryId);
+    }
+
+    getItemQuantity(itemId: number): number {
+        let total = 0;
+
+        for (const item of this.items.values()) {
+            if (item.itemId === itemId) {
+                total += item.quantity;
+            }
+        }
+
+        return total;
+    }
+
+    clear() {
+        this.items.clear();
+    }
+
+    get size(): number {
+        return this.items.size;
+    }
+}
+
+export const inventoryManager =
+    new InventoryManager();
+
+
+==================== .\packages\client\src\game\scenes\WorldScene.ts ====================
+
+import Phaser from 'phaser';
+import { Client } from 'colyseus.js';
+import { useAppStore } from '../../store/appStore';
+import { useHUDStore } from '../../store/hudStore';
+import { getMapConfig } from '../maps/MapRegistry';
+import type { MapConfig } from '../maps/MapRegistry';
+import { MonsterVisualEntity } from '../entities/MonsterVisualEntity';
+import { NpcVisualEntity } from '../entities/NpcVisualEntity';
+import { GroundDropVisualEntity } from '../entities/GroundDropVisualEntity';
+import { inventoryManager } from '../inventory/InventoryManager';
+
+export class WorldScene extends Phaser.Scene {
+  // ─── Debug ───────────────────────────────────────────
+  public static DEBUG_WORLD_GRID: boolean = false;
+
+  // ─── Colyseus ────────────────────────────────────────
+  private client!: Client;
+  private room?: any;
+  private mapConfig!: MapConfig;
+
+ // ─── Drops ────────────────────────────────────────
+ private drops: Map<string, GroundDropVisualEntity> = new Map();
+
+  // ─── Local Player ────────────────────────────────────
+  private localSprite?: Phaser.GameObjects.Sprite;
+  private localAura?: Phaser.GameObjects.Graphics;
+  private localNameTag?: Phaser.GameObjects.Text;
+  private localHpBar?: Phaser.GameObjects.Graphics;
+  private localPosX: number = 200;
+  private localPosY: number = 200;
+
+  // ─── Other Players ───────────────────────────────────
+  private otherPlayerSprites: Map<string, Phaser.GameObjects.Sprite> = new Map();
+  private otherPlayerGraphics: Map<string, Phaser.GameObjects.Graphics> = new Map();
+  private otherPlayerTexts: Map<string, Phaser.GameObjects.Text> = new Map();
+
+  // ─── Mobs ────────────────────────────────────────────
+  private mobs: Map<string, MonsterVisualEntity> = new Map();
+
+  // ─── NPCs ────────────────────────────────────────────
+  private npcs: Map<string, NpcVisualEntity> = new Map();
+
+  // ─── Targeting ───────────────────────────────────────
+  private selectedMobId: string = '';
+  private targetRing?: Phaser.GameObjects.Graphics;
+
+  // ─── Camera ──────────────────────────────────────────
+  private currentZoom: number = 1.2;
+  private isRightDragging: boolean = false;
+  private cameraAngle: number = 0;
+  private minZoom: number = 0.5; // será recalculado em create()
+
+  // ─── UI / Debug ──────────────────────────────────────
+  private debugGridGfx?: Phaser.GameObjects.Grid;
+  private debugText?: Phaser.GameObjects.Text;
+  private mapNameTag?: Phaser.GameObjects.Text;
+
+
+  constructor() {
+    super('WorldScene');
+  }
+
+  preload() {
+    const activeChar = useAppStore.getState().activeCharacter;
+    const mapId = activeChar?.mapId || 'plains_of_ash';
+    this.mapConfig = getMapConfig(mapId);
+
+    this.load.spritesheet('knight_sprite', '/assets/sprites/knight.png', {
+      frameWidth: 32,
+      frameHeight: 32,
+    });
+    this.load.spritesheet('skeleton_sprite', '/assets/sprites/skeleton.png', {
+      frameWidth: 32,
+      frameHeight: 32,
+    });
+  }
+
+  create(data?: { forceMapId?: string }) {
+
+    // Reset de estado deixado por uma sessão de mapa anterior (scene.restart)
+    this.localSprite = undefined;
+    this.localAura = undefined;
+    this.localNameTag = undefined;
+    this.localHpBar = undefined;
+    this.localPosX = 200;
+    this.localPosY = 200;
+    this.otherPlayerSprites.clear();
+    this.otherPlayerGraphics.clear();
+    this.otherPlayerTexts.clear();
+    this.mobs.clear();
+    this.npcs.clear();
+    this.drops.clear();
+    this.selectedMobId = '';
+
+    const activeChar = useAppStore.getState().activeCharacter;
+    const mapId = data?.forceMapId || activeChar?.mapId || 'plains_of_ash';
+    this.mapConfig = getMapConfig(mapId);
+
+    console.log(`[WorldScene] Map: ${this.mapConfig.name} | Spawn: ${this.mapConfig.defaultSpawn.x},${this.mapConfig.defaultSpawn.y}`);
+
+    // Block browser context menu (for right-click drag)
+    window.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    const mapW = this.mapConfig.width * this.mapConfig.tileWidth;
+    const mapH = this.mapConfig.height * this.mapConfig.tileHeight;
+
+    // ── 1. Ground Terrain ──────────────────────────────
+    this.buildTerrain(mapW, mapH);
+
+    // ── 2. Debug Grid (hidden by default) ─────────────
+    this.debugGridGfx = this.add.grid(
+      mapW / 2, mapH / 2,
+      mapW, mapH,
+      this.mapConfig.tileWidth, this.mapConfig.tileHeight,
+      0x000000, 0,
+      0x3b82f6, 0.25
+    ).setDepth(5).setVisible(WorldScene.DEBUG_WORLD_GRID);
+
+    // ── 3. Target Selection Ring ────────────────────────
+    this.targetRing = this.add.graphics().setDepth(19);
+
+    // ── 4. Map Name Tag (top-right fixed HUD) ──────────
+    this.mapNameTag = this.add.text(
+      this.cameras.main.width - 12,
+      12,
+      `${this.mapConfig.name}\n${this.mapConfig.id}`,
+      {
+        fontSize: '13px',
+        color: '#c0cfe0',
+        align: 'right',
+        backgroundColor: '#00000099',
+        padding: { x: 8, y: 5 },
+      }
+    ).setOrigin(1, 0).setDepth(200).setScrollFactor(0);
+
+    // ── 5. Debug Text Overlay ──────────────────────────
+    this.debugText = this.add.text(12, 70, '', {
+      fontSize: '11px',
+      color: '#00ffaa',
+      backgroundColor: '#00000099',
+      padding: { x: 6, y: 4 },
+    }).setScrollFactor(0).setDepth(200).setVisible(WorldScene.DEBUG_WORLD_GRID);
+
+    // ── 6. Static NPCs ─────────────────────────────────
+    this.spawnStaticNpcs(mapW, mapH);
+    this.spawnPortals(mapW, mapH);
+
+    // ── 7. Input ───────────────────────────────────────
+    this.setupInputs();
+
+    this.input.keyboard?.on('keydown', (e: KeyboardEvent) => {
+      if (/^F[1-9]|F1[0-2]$/.test(e.key)) {
+        e.preventDefault();
+      }
+    });
+
+    // ── 8. Camera ─────────────────────────────────────
+    this.cameras.main.setBounds(0, 0, mapW, mapH);
+
+    // Zoom mínimo = o quanto precisa pra caber o mapa inteiro na tela, o que for maior (mais restritivo)
+    this.minZoom = Math.max(
+      this.cameras.main.width / mapW,
+      this.cameras.main.height / mapH
+    );
+    this.currentZoom = Math.max(this.currentZoom, this.minZoom);
+    this.cameras.main.setZoom(this.currentZoom);
+    this.cameras.main.centerOn(this.mapConfig.defaultSpawn.x, this.mapConfig.defaultSpawn.y);
+
+    // ── 9. Connect to Server ───────────────────────────
+    this.connectServer();
+  }
+
+  // ── Terrain ─────────────────────────────────────────────
+  private buildTerrain(mapW: number, mapH: number) {
+    const g = this.add.graphics().setDepth(0);
+
+    // Base meadow
+    g.fillStyle(0x2d4a27, 1);
+    g.fillRect(0, 0, mapW, mapH);
+
+    // Horizontal road
+    g.fillStyle(0x525c6a, 1);
+    g.fillRect(0, mapH / 2 - 48, mapW, 96);
+    // Vertical road
+    g.fillRect(mapW / 2 - 48, 0, 96, mapH);
+
+    // Central Plaza
+    g.fillStyle(0x64748b, 1);
+    g.fillCircle(mapW / 2, mapH / 2, 110);
+    g.lineStyle(4, 0x94a3b8, 1);
+    g.strokeCircle(mapW / 2, mapH / 2, 110);
+
+    // Cobblestone pattern on road
+    g.lineStyle(1, 0x475569, 0.6);
+    for (let x = 0; x < mapW; x += 32) {
+      g.lineBetween(x, mapH / 2 - 48, x, mapH / 2 + 48);
+    }
+    for (let y = 0; y < mapH; y += 32) {
+      g.lineBetween(mapW / 2 - 48, y, mapW / 2 + 48, y);
+    }
+
+    // Grass patches
+    g.fillStyle(0x3a5c30, 0.6);
+    for (let i = 0; i < 30; i++) {
+      const px = Math.sin(i * 173.5) * mapW * 0.4 + mapW / 2;
+      const py = Math.cos(i * 291.7) * mapH * 0.4 + mapH / 2;
+      g.fillCircle(px, py, 20 + (i % 4) * 8);
+    }
+
+    // World boundary
+    g.lineStyle(6, 0x1e293b, 1);
+    g.strokeRect(0, 0, mapW, mapH);
+  }
+
+  // ── Static NPCs ─────────────────────────────────────────
+  private spawnStaticNpcs(mapW: number, mapH: number) {
+    const kafra = new NpcVisualEntity(this, 'npc_kafra',
+      mapW / 2 - 40, mapH / 2 - 50,
+      'Kafra Employee', 'Save & Storage'
+    );
+    this.npcs.set('npc_kafra', kafra);
+
+    const guide = new NpcVisualEntity(this, 'npc_guide',
+      mapW / 2 + 40, mapH / 2 - 50,
+      'Novice Instructor', 'Quest & Training'
+    );
+    this.npcs.set('npc_guide', guide);
+  }
+
+  private spawnPortals(_mapW: number, _mapH: number) {
+    this.mapConfig.portals.forEach((portal) => {
+      const g = this.add.graphics().setDepth(15);
+      g.fillStyle(0x22d3ee, 0.35);
+      g.fillCircle(portal.x, portal.y, portal.radius);
+      g.lineStyle(2, 0x22d3ee, 0.9);
+      g.strokeCircle(portal.x, portal.y, portal.radius);
+
+      this.add.text(portal.x, portal.y - portal.radius - 12, `→ ${portal.targetMap}`, {
+        fontSize: '10px', color: '#22d3ee',
+        backgroundColor: '#000000bb', padding: { x: 4, y: 2 },
+      }).setOrigin(0.5).setDepth(15);
+    });
+  }
+
+  // ── Local Player Visual ─────────────────────────────────
+  private createLocalPlayer(x: number, y: number, name: string) {
+    if (this.localSprite) return; // Already created
+
+    // Aura glow
+    this.localAura = this.add.graphics().setDepth(20);
+    this.localAura.fillStyle(0x00ffaa, 0.3);
+    this.localAura.fillCircle(0, 0, 20);
+    this.localAura.lineStyle(2, 0x00ffaa, 0.9);
+    this.localAura.strokeCircle(0, 0, 20);
+    this.localAura.setPosition(x, y);
+
+    // Knight Sprite
+    this.localSprite = this.add.sprite(x, y, 'knight_sprite', 0)
+      .setScale(1.4)
+      .setDepth(21);
+
+    // Name Tag
+    this.localNameTag = this.add.text(x, y - 30, name, {
+      fontSize: '12px',
+      color: '#00ffaa',
+      backgroundColor: '#000000bb',
+      padding: { x: 5, y: 2 },
+    }).setOrigin(0.5).setDepth(22);
+
+    // HP Bar
+    this.localHpBar = this.add.graphics().setDepth(22);
+
+    // Camera follows local player sprite
+    this.cameras.main.startFollow(this.localSprite, true, 0.12, 0.12);
+    this.cameras.main.setZoom(this.currentZoom);
+
+    console.log(`[WorldScene] Local player created at (${x}, ${y})`);
+  }
+
+  private updateLocalPlayer(x: number, y: number, hp: number, maxHp: number) {
+    if (!this.localSprite) return;
+
+    const dx = x - this.localPosX;
+    const dy = y - this.localPosY;
+    const moving = Math.hypot(dx, dy) > 0.5;
+
+    this.localPosX = x;
+    this.localPosY = y;
+
+    this.localSprite.setPosition(x, y);
+    this.localAura?.setPosition(x, y);
+    if (this.localNameTag) {
+      this.localNameTag.setPosition(x, y - 30);
+    }
+
+    // Flip direction
+    if (dx < -0.1) this.localSprite.setFlipX(true);
+    else if (dx > 0.1) this.localSprite.setFlipX(false);
+
+    // Animate walk
+    if (moving) {
+      this.localSprite.setFrame(Math.floor(Date.now() / 150) % 4);
+    } else {
+      this.localSprite.setFrame(0);
+    }
+
+    // HP Bar
+    if (this.localHpBar) {
+      this.localHpBar.clear();
+      this.localHpBar.fillStyle(0x000000, 0.8);
+      this.localHpBar.fillRect(x - 16, y - 22, 32, 5);
+      const ratio = maxHp > 0 ? Math.max(0, Math.min(1, hp / maxHp)) : 1;
+      this.localHpBar.fillStyle(0x10b981, 1);
+      this.localHpBar.fillRect(x - 16, y - 22, 32 * ratio, 5);
+    }
+  }
+
+  // ── Inputs ─────────────────────────────────────────────
+  private setupInputs() {
+    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (pointer.rightButtonDown()) {
+        this.isRightDragging = true;
+      } else if (pointer.leftButtonDown()) {
+        this.handleClick(pointer);
+      }
+    });
+
+    this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+      if (!pointer.rightButtonDown()) this.isRightDragging = false;
+    });
+
+    this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+      if (this.isRightDragging && pointer.isDown) {
+        this.cameraAngle += pointer.deltaX * 0.004;
+        (this.cameras.main as any).rotation = this.cameraAngle;
+      }
+    });
+
+    this.input.on('wheel', (_p: any, _g: any, _dx: number, deltaY: number) => {
+      this.currentZoom = Phaser.Math.Clamp(
+        this.currentZoom + deltaY * -0.0015,
+        this.minZoom, 2.5
+      );
+      this.cameras.main.setZoom(this.currentZoom);
+    });
+
+    // G = Toggle debug grid
+    this.input.keyboard?.on('keydown-G', () => {
+      WorldScene.DEBUG_WORLD_GRID = !WorldScene.DEBUG_WORLD_GRID;
+      this.debugGridGfx?.setVisible(WorldScene.DEBUG_WORLD_GRID);
+      this.debugText?.setVisible(WorldScene.DEBUG_WORLD_GRID);
+    });
+
+    this.scale.on('resize', (gameSize: Phaser.Structs.Size) => {
+      this.cameras.main?.setViewport(0, 0, gameSize.width, gameSize.height);
+      if (this.mapNameTag) {
+        this.mapNameTag.setPosition(gameSize.width - 12, 12);
+      }
+    });
+  }
+
+  private handleClick(pointer: Phaser.Input.Pointer) {
+    if (!this.room) return;
+
+    const wx = pointer.worldX;
+    const wy = pointer.worldY;
+
+    // Check mob click
+    let clickedMobId: string | null = null;
+    this.mobs.forEach((mob, id) => {
+      if (!mob.isDead && Phaser.Math.Distance.Between(wx, wy, mob.currentX, mob.currentY) < 30) {
+        clickedMobId = id;
+      }
+    });
+
+    if (clickedMobId) {
+      this.selectedMobId = clickedMobId;
+      this.room.send('attack', { targetId: clickedMobId });
+
+      const mobState = (this.room.state as any)?.mobs?.get(clickedMobId);
+      if (mobState) {
+        useHUDStore.getState().setTargetInfo({
+          id: mobState.id,
+          name: mobState.name,
+          level: mobState.level,
+          hp: mobState.hp,
+          maxHp: mobState.maxHp,
+        });
+      }
+    } else {
+      // Click-to-move
+      this.showClickMarker(wx, wy);
+      this.room.send('move', { x: wx, y: wy });
+    }
+  }
+
+  private showClickMarker(x: number, y: number) {
+    const m = this.add.graphics().setDepth(30);
+    m.lineStyle(2, 0x00ffaa, 1);
+    m.strokeRect(x - 8, y - 8, 16, 16);
+    this.tweens.add({
+      targets: m, scaleX: 1.8, scaleY: 1.8, alpha: 0, duration: 280,
+      onComplete: () => m.destroy(),
+    });
+  }
+
+  // ── Server Connection ───────────────────────────────────
+  private async connectServer(targetMapId?: string) {
+    const token = useAppStore.getState().token;
+    const activeChar = useAppStore.getState().activeCharacter;
+    if (!token || !activeChar) return;
+
+    const mapToJoin = targetMapId || this.mapConfig.id;
+
+    try {
+      if (!this.client) {
+        this.client = new Client('ws://localhost:2567');
+      }
+      const room = await this.client.joinOrCreate(mapToJoin, { token, characterId: activeChar.id });
+      if (!this.sys?.isActive()) { room.leave(); return; }
+
+        this.room = room;
+
+        // ─────────────────────────────────────────────────────────────
+        // INVENTORY
+        // ─────────────────────────────────────────────────────────────
+
+        room.onMessage(
+            "inventorySnapshot",
+            (data: { items?: any[] }) => {
+                if (!this.sys?.isActive()) return;
+
+                inventoryManager.setInventory(
+                    data?.items ?? [],
+                );
+
+                console.log(
+                    `[WorldScene] Inventory synchronized: ` +
+                    `${inventoryManager.size} entries`,
+                );
+            },
+        );
+
+      useHUDStore.getState().setRoom(room);
+      console.log('[Colyseus] Connected to map', mapToJoin, '- session:', room.sessionId);
+
+      room.onMessage('teleportApproved', (data: any) => {
+        this.switchMap(data.targetMap);
+      });
+
+      // Players
+      (room.state as any).players.onAdd((player: any, sessionId: string) => {
+        if (!this.sys?.isActive()) return;
+        const isLocal = sessionId === room.sessionId || player.name === activeChar.name;
+
+        if (isLocal) {
+          this.createLocalPlayer(player.x || 200, player.y || 200, player.name);
+        } else {
+          // Other player sprite
+          const spr = this.add.sprite(player.x, player.y, 'knight_sprite', 0)
+            .setScale(1.2).setDepth(20).setTint(0x88aaff);
+          this.otherPlayerSprites.set(sessionId, spr);
+
+          const aura = this.add.graphics().setDepth(19);
+          this.otherPlayerGraphics.set(sessionId, aura);
+
+          const tag = this.add.text(player.x, player.y - 28, player.name, {
+            fontSize: '11px', color: '#aaddff',
+            backgroundColor: '#000000bb', padding: { x: 4, y: 2 },
+          }).setOrigin(0.5).setDepth(21);
+          this.otherPlayerTexts.set(sessionId, tag);
+        }
+      });
+
+      (room.state as any).players.onRemove((_player: any, sessionId: string) => {
+        if (!this.sys?.isActive()) return;
+        this.otherPlayerSprites.get(sessionId)?.destroy();
+        this.otherPlayerGraphics.get(sessionId)?.destroy();
+        this.otherPlayerTexts.get(sessionId)?.destroy();
+        this.otherPlayerSprites.delete(sessionId);
+        this.otherPlayerGraphics.delete(sessionId);
+        this.otherPlayerTexts.delete(sessionId);
+      });
+
+      // Mobs
+      (room.state as any).mobs.onAdd((mob: any, mobId: string) => {
+        if (!this.sys?.isActive()) return;
+        const visual = new MonsterVisualEntity(
+          this, mobId, mob.mobDbId,
+          mob.x || 300, mob.y || 300,
+          mob.name, mob.level
+        );
+        this.mobs.set(mobId, visual);
+      });
+
+      (room.state as any).mobs.onRemove((_mob: any, mobId: string) => {
+        if (!this.sys?.isActive()) return;
+        this.mobs.get(mobId)?.destroy();
+        this.mobs.delete(mobId);
+        if (this.selectedMobId === mobId) {
+          this.selectedMobId = '';
+          useHUDStore.getState().setTargetInfo(null);
+        }
+      });
+
+      // Dops
+     (room.state as any).drops.onAdd((drop: any, dropId: string) => {
+            if (!this.sys?.isActive()) return;
+         console.log(
+             "[WorldScene] GroundDrop listeners registered",
+         );
+            const visual = new GroundDropVisualEntity(
+                this,
+                dropId,
+                drop.itemId,
+                drop.itemName,
+                drop.quantity,
+                drop.x,
+                drop.y
+            );
+
+            this.drops.set(dropId, visual);
+
+            console.log(
+                `[WorldScene] GroundDrop added: ${drop.itemName} (${drop.itemId})`
+            );
+        });
+
+        (room.state as any).drops.onRemove(
+            (drop: any, dropId: string) => {
+                console.log(
+                    `[WorldScene] GroundDrop onRemove received: ${dropId}`,
+                );
+
+                const visual =
+                    this.drops.get(dropId);
+
+                console.log(
+                    `[WorldScene] GroundDrop visual found: ${!!visual}`,
+                );
+
+                if (!visual) {
+                    console.warn(
+                        `[WorldScene] GroundDrop visual not found: ${dropId}`,
+                    );
+
+                    return;
+                }
+
+                visual.destroy();
+
+                this.drops.delete(dropId);
+
+                console.log(
+                    `[WorldScene] GroundDrop visual destroyed: ${dropId}`,
+                );
+            },
+        );
+
+      // Messages
+      room.onMessage('damage', (data: any) => {
+        if (!this.sys?.isActive()) return;
+        this.showDamage(data.x, data.y, data.damage, data.isCrit);
+        if (this.selectedMobId && data.targetId === this.selectedMobId) {
+          const m = (this.room?.state as any)?.mobs?.get(this.selectedMobId);
+          if (m) useHUDStore.getState().setTargetInfo({ id: m.id, name: m.name, level: m.level, hp: m.hp, maxHp: m.maxHp });
+        }
+      });
+
+      room.onMessage('combatLog', (data: any) => {
+        if (data.text) useHUDStore.getState().addLog(data.text, data.color);
+      });
+
+        room.onMessage('statDistributionResult', (data: any) => {
+            if (!this.sys?.isActive()) return;
+
+            if (!data.success) {
+                console.warn(
+                    '[Stats] Distribution failed:',
+                    data.error
+                );
+
+                useHUDStore.getState().addLog(
+                    `Atributo: ${data.error}`,
+                    '#ff5555'
+                );
+
+                return;
+            }
+
+            console.log(
+                `[Stats] ${data.stat} +${data.amount} | ` +
+                `Cost: ${data.cost} | ` +
+                `Remaining: ${data.availablePoints}`
+            );
+
+            useHUDStore.getState().setPlayerInfo({
+                str: data.stats.str,
+                agi: data.stats.agi,
+                vit: data.stats.vit,
+                int: data.stats.int,
+                dex: data.stats.dex,
+                luk: data.stats.luk,
+
+                statPoints: data.availablePoints,
+
+                maxHp: data.derived.maxHp,
+                maxMp: data.derived.maxMp,
+
+                atk: data.derived.atk,
+                matk: data.derived.matk,
+                def: data.derived.def,
+                magicDefense: data.derived.magicDefense,
+                hit: data.derived.hit,
+                flee: data.derived.flee,
+                crit: data.derived.crit,
+            });
+        });
+
+    } catch (err) {
+      console.error('[Colyseus] Error:', err);
+    }
+  }
+
+  private showDamage(x: number, y: number, damage: number, isCrit: boolean) {
+    if (!this.add || !this.sys?.isActive()) return;
+    const t = this.add.text(x, y - 20, String(damage), {
+      fontSize: isCrit ? '22px' : '15px',
+      color: isCrit ? '#ffcc00' : '#ffffff',
+      stroke: '#000000',
+      strokeThickness: 4,
+    }).setOrigin(0.5).setDepth(50);
+    this.tweens.add({
+      targets: t, y: y - 55, alpha: 0, duration: 900, ease: 'Power1',
+      onComplete: () => t.destroy(),
+    });
+  }
+
+    private switchMap(targetMapId: string) {
+        console.log(
+            `[WorldScene] Switching map: ${this.mapConfig.id} -> ${targetMapId}`
+        );
+
+        this.room?.leave();
+
+        this.room = undefined;
+
+        useHUDStore.getState().setRoom(undefined);
+
+        this.scene.restart({ forceMapId: targetMapId });
+    }
+
+  // ── Update Loop (60 FPS) ────────────────────────────────
+  update() {
+    if (!this.sys?.isActive() || !this.room) return;
+
+    const activeChar = useAppStore.getState().activeCharacter;
+
+    // Sync all players
+    (this.room?.state as any)?.players?.forEach((player: any, sessionId: string) => {
+      const isLocal = sessionId === this.room.sessionId || player.name === activeChar?.name;
+
+
+      if (isLocal) {
+
+
+        if (this.localSprite) {
+          for (const portal of this.mapConfig.portals) {
+            const dist = Phaser.Math.Distance.Between(this.localPosX, this.localPosY, portal.x, portal.y);
+            if (dist <= portal.radius) {
+              this.room?.send('teleport', { targetMap: portal.targetMap });
+              break;
+            }
+          }
+        }
+
+        // Create visual if not yet done (race condition fallback)
+        if (!this.localSprite) {
+          this.createLocalPlayer(player.x, player.y, player.name);
+        }
+        this.updateLocalPlayer(player.x, player.y, player.hp, player.maxHp);
+
+          useHUDStore.getState().setPlayerInfo({
+              name: player.name,
+              level: player.level,
+
+              hp: player.hp,
+              maxHp: player.maxHp,
+
+              mp: player.mp,
+              maxMp: player.maxMp,
+
+              baseExp: player.baseExp,
+              maxBaseExp: player.maxBaseExp,
+
+              class: player.class,
+
+              str: player.str,
+              agi: player.agi,
+              vit: player.vit,
+              int: player.int,
+              dex: player.dex,
+              luk: player.luk,
+
+              statPoints: player.availablePoints,
+
+              atk: player.atk,
+              matk: player.matk,
+              def: player.def,
+              magicDefense: player.magicDefense,
+              hit: player.hit,
+              flee: player.flee,
+              crit: player.crit,
+              aspd: player.aspd,
+          });
+      } else {
+        const spr = this.otherPlayerSprites.get(sessionId);
+        const aura = this.otherPlayerGraphics.get(sessionId);
+        const tag = this.otherPlayerTexts.get(sessionId);
+        if (spr) {
+          spr.setPosition(player.x, player.y);
+          spr.setFrame(Math.floor(Date.now() / 150) % 4);
+        }
+        if (aura) {
+          aura.clear();
+          aura.fillStyle(0x3b82f6, 0.25);
+          aura.fillCircle(player.x, player.y, 18);
+        }
+        if (tag) tag.setPosition(player.x, player.y - 28);
+      }
+    });
+
+    // Sync mobs
+    (this.room?.state as any)?.mobs?.forEach((mob: any, mobId: string) => {
+      const visual = this.mobs.get(mobId);
+      if (visual) {
+        visual.updatePosition(mob.x, mob.y, mob.hp, mob.maxHp, mob.isDead);
+      }
+    });
+
+    // Drops sync
+      (this.room?.state as any)?.drops?.forEach(
+          (drop: any, dropId: string) => {
+              const visual = this.drops.get(dropId);
+
+              if (visual) {
+                  visual.updatePosition(drop.x, drop.y);
+              }
+          }
+      );
+
+    // Target Selection Ring
+    if (this.targetRing) {
+      this.targetRing.clear();
+      if (this.selectedMobId) {
+        const visual = this.mobs.get(this.selectedMobId);
+        if (visual && !visual.isDead) {
+          this.targetRing.lineStyle(3, 0xff2222, 1);
+          this.targetRing.strokeCircle(visual.currentX, visual.currentY, 26);
+        }
+      }
+    }
+
+    // Debug overlay
+    if (this.debugText && WorldScene.DEBUG_WORLD_GRID) {
+      const fps = Math.round(this.game.loop.actualFps);
+      this.debugText.setText(
+        `[DEBUG] FPS: ${fps}\n` +
+        `Map: ${this.mapConfig.id}\n` +
+        `Player: (${Math.round(this.localPosX)}, ${Math.round(this.localPosY)})\n` +
+        `Mobs: ${this.mobs.size} | NPCs: ${this.npcs.size}\n` +
+        `Zoom: ${this.currentZoom.toFixed(2)}x\n` +
+        `[G] Toggle Grid`
+      );
+    }
+  }
+}
+
+
+==================== .\packages\client\src\store\hudStore.ts ====================
+
+import { create } from 'zustand';
+
+export interface CombatLogMessage {
+  id: string;
+  text: string;
+  color?: string;
+  timestamp: string;
+}
+
+export interface PlayerHUDInfo {
+    name: string;
+    level: number;
+    hp: number;
+    maxHp: number;
+    mp: number;
+    maxMp: number;
+    baseExp: number;
+    maxBaseExp: number;
+    class: string;
+
+    str?: number;
+    agi?: number;
+    vit?: number;
+    int?: number;
+    dex?: number;
+    luk?: number;
+
+    statPoints?: number;
+    gold?: number;
+
+    atk?: number;
+    matk?: number;
+    def?: number;
+    magicDefense?: number;
+    hit?: number;
+    flee?: number;
+    crit?: number;
+    aspd?: number;
+}
+
+export interface TargetHUDInfo {
+  id: string;
+  name: string;
+  level: number;
+  hp: number;
+  maxHp: number;
+}
+
+export interface ItemSlotInfo {
+  id: string;
+  name: string;
+  icon: string;
+  type: string;
+  count: number;
+  description: string;
+}
+
+interface HUDState {
+    playerInfo: PlayerHUDInfo | null;
+    targetInfo: TargetHUDInfo | null;
+    logs: CombatLogMessage[];
+    inventoryItems: ItemSlotInfo[];
+    showInventory: boolean;
+    showStatus: boolean;
+    showSkills: boolean;
+
+    room?: any;
+
+    setRoom: (room: any) => void;
+    setPlayerInfo: (info: Partial<PlayerHUDInfo>) => void;
+    setTargetInfo: (info: TargetHUDInfo | null) => void;
+    addLog: (text: string, color?: string) => void;
+    toggleInventory: () => void;
+    toggleStatus: () => void;
+    toggleSkills: () => void;
+}
+
+export const useHUDStore = create<HUDState>((set) => ({
+  playerInfo: null,
+  targetInfo: null,
+  logs: [],
+  inventoryItems: [
+    { id: '1', name: 'Red Potion', icon: '🧪', type: 'Consumable', count: 15, description: 'Restores 45 HP' },
+    { id: '2', name: 'Blue Potion', icon: '💧', type: 'Consumable', count: 5, description: 'Restores 30 SP' },
+    { id: '3', name: 'Iron Sword', icon: '⚔️', type: 'Weapon', count: 1, description: 'ATK +15, STR +2' },
+    { id: '4', name: 'Novice Shield', icon: '🛡️', type: 'Armor', count: 1, description: 'DEF +5, VIT +1' },
+    { id: '5', name: 'Fly Wing', icon: '🪶', type: 'Consumable', count: 10, description: 'Teleports to random location' },
+  ],
+  showInventory: false,
+  showStatus: false,
+  showSkills: false,
+
+  room: undefined,
+
+  setRoom: (room) => set({ room }),
+
+  setPlayerInfo: (info) =>
+    set((state) => ({
+      playerInfo: state.playerInfo ? { ...state.playerInfo, ...info } : (info as PlayerHUDInfo),
+    })),
+
+  setTargetInfo: (info) => set({ targetInfo: info }),
+
+  addLog: (text, color = '#ffffff') =>
+    set((state) => ({
+      logs: [
+        ...state.logs.slice(-49),
+        {
+          id: Math.random().toString(36).slice(2),
+          text,
+          color,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        },
+      ],
+    })),
+
+  toggleInventory: () => set((state) => ({ showInventory: !state.showInventory })),
+  toggleStatus: () => set((state) => ({ showStatus: !state.showStatus })),
+  toggleSkills: () => set((state) => ({ showSkills: !state.showSkills })),
+}));
+
+
+==================== .\packages\client\src\ui\ROHUD.tsx ====================
+
+import React, { useState, useEffect, useRef } from 'react';
+import { useHUDStore } from '../store/hudStore';
+import './ro-hud.css';
+
+export default function ROHUD() {
+    const {
+        playerInfo,
+        targetInfo,
+        logs,
+        inventoryItems,
+        showInventory,
+        showStatus,
+        showSkills,
+        room,
+        addLog,
+        setTargetInfo,
+        toggleInventory,
+        toggleStatus,
+        toggleSkills,
+    } = useHUDStore();
+
+    const [chatInput, setChatInput] = useState('');
+
+    type StatKey = 'str' | 'agi' | 'vit' | 'int' | 'dex' | 'luk';
+
+    const handleDistributeStat = (stat: StatKey) => {
+        if (!room) {
+            console.warn('[ROHUD] Colyseus room not connected.');
+            return;
+        }
+
+        room.send('distributeStat', {
+            stat,
+            amount: 1,
+        });
+    };
+
+  const logEndRef = useRef<HTMLDivElement>(null);
+
+  // Keyboard Hotkeys (I = Inventory, A = Status, S = Skills)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger hotkeys if typing in chat
+      if (document.activeElement?.tagName === 'INPUT') return;
+
+      const key = e.key.toLowerCase();
+      if (key === 'i') toggleInventory();
+      if (key === 'a' || key === 'c') toggleStatus();
+      if (key === 's' || key === 'k') toggleSkills();
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [toggleInventory, toggleStatus, toggleSkills]);
+
+  useEffect(() => {
+    logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [logs]);
+
+  const handleSendChat = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!chatInput.trim() || !playerInfo) return;
+    addLog(`${playerInfo.name}: ${chatInput}`, '#00e5ff');
+    setChatInput('');
+  };
+
+  const hpPercent = playerInfo ? Math.max(0, Math.min(100, (playerInfo.hp / playerInfo.maxHp) * 100)) : 100;
+  const mpPercent = playerInfo ? Math.max(0, Math.min(100, (playerInfo.mp / playerInfo.maxMp) * 100)) : 100;
+  const expPercent = playerInfo ? Math.max(0, Math.min(100, (playerInfo.baseExp / playerInfo.maxBaseExp) * 100)) : 0;
+
+  const targetHpPercent = targetInfo ? Math.max(0, Math.min(100, (targetInfo.hp / targetInfo.maxHp) * 100)) : 100;
+
+  return (
+    <div className="ro-hud-container">
+      {/* ── 1. Basic Info Window ── */}
+      {playerInfo && (
+        <div className="ro-window ro-basic-info">
+          <div className="ro-window-titlebar">
+            <span>Basic Info</span>
+            <div className="ro-menu-buttons">
+              <button title="Status (A)" onClick={toggleStatus}>STAT</button>
+              <button title="Inventory (I)" onClick={toggleInventory}>ITEMS</button>
+              <button title="Skills (S)" onClick={toggleSkills}>SKILL</button>
+            </div>
+          </div>
+          <div className="ro-window-body">
+            <div className="ro-char-name-row">
+              <span className="ro-char-name">{playerInfo.name}</span>
+              <span className="ro-char-level">Base Lv. {playerInfo.level}</span>
+            </div>
+            <div className="ro-class-tag">{playerInfo.class.toUpperCase()}</div>
+
+            {/* HP Bar */}
+            <div className="ro-bar-container">
+              <span className="ro-bar-label">HP</span>
+              <div className="ro-bar ro-hp-bar">
+                <div className="ro-bar-fill" style={{ width: `${hpPercent}%` }} />
+                <span className="ro-bar-text">{playerInfo.hp} / {playerInfo.maxHp}</span>
+              </div>
+            </div>
+
+            {/* SP Bar */}
+            <div className="ro-bar-container">
+              <span className="ro-bar-label">SP</span>
+              <div className="ro-bar ro-sp-bar">
+                <div className="ro-bar-fill" style={{ width: `${mpPercent}%` }} />
+                <span className="ro-bar-text">{playerInfo.mp} / {playerInfo.maxMp}</span>
+              </div>
+            </div>
+
+            {/* Base Exp Bar */}
+            <div className="ro-bar-container">
+              <span className="ro-bar-label">EXP</span>
+              <div className="ro-bar ro-exp-bar">
+                <div className="ro-bar-fill" style={{ width: `${expPercent}%` }} />
+                <span className="ro-bar-text">{expPercent.toFixed(1)}%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 2. Target Lock Frame ── */}
+      {targetInfo && (
+        <div className="ro-window ro-target-frame">
+          <div className="ro-window-titlebar">
+            <span>Target — {targetInfo.name}</span>
+            <button className="ro-close-btn" onClick={() => setTargetInfo(null)}>✕</button>
+          </div>
+          <div className="ro-window-body">
+            <div className="ro-target-details">
+              <span>Lv. {targetInfo.level}</span>
+              <span>HP: {targetInfo.hp} / {targetInfo.maxHp}</span>
+            </div>
+            <div className="ro-bar ro-target-hp-bar">
+              <div className="ro-bar-fill" style={{ width: `${targetHpPercent}%` }} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 3. Status / Attributes Window (Alt+A) ── */}
+      {showStatus && (
+        <div className="ro-window ro-status-window">
+          <div className="ro-window-titlebar">
+            <span>Character Status (A)</span>
+            <button className="ro-close-btn" onClick={toggleStatus}>✕</button>
+          </div>
+          <div className="ro-window-body">
+            <div className="ro-stats-grid">
+                          <div className="ro-stat-row">
+                              <span>STR:</span>
+                              <strong>{playerInfo?.str ?? 1}</strong>
+                              <button
+                                  className="ro-plus-btn"
+                                  onClick={() => handleDistributeStat('str')}
+                                  disabled={!room || (playerInfo?.statPoints ?? 0) <= 0}
+                              >
+                                  +
+                              </button>
+                          </div>
+                          <div className="ro-stat-row">
+                              <span>AGI:</span>
+                              <strong>{playerInfo?.agi ?? 1}</strong>
+                              <button
+                                  className="ro-plus-btn"
+                                  onClick={() => handleDistributeStat('agi')}
+                                  disabled={!room || (playerInfo?.statPoints ?? 0) <= 0}
+                              >
+                                  +
+                              </button>
+                          </div>
+                          <div className="ro-stat-row">
+                              <span>VIT:</span>
+                              <strong>{playerInfo?.vit ?? 1}</strong>
+                              <button
+                                  className="ro-plus-btn"
+                                  onClick={() => handleDistributeStat('vit')}
+                                  disabled={!room || (playerInfo?.statPoints ?? 0) <= 0}
+                              >
+                                  +
+                              </button>
+                          </div>
+                          <div className="ro-stat-row">
+                              <span>INT:</span>
+                              <strong>{playerInfo?.int ?? 1}</strong>
+                              <button
+                                  className="ro-plus-btn"
+                                  onClick={() => handleDistributeStat('int')}
+                                  disabled={!room || (playerInfo?.statPoints ?? 0) <= 0}
+                              >
+                                  +
+                              </button>
+                          </div>
+                          <div className="ro-stat-row">
+                              <span>DEX:</span>
+                              <strong>{playerInfo?.dex ?? 1}</strong>
+                              <button
+                                  className="ro-plus-btn"
+                                  onClick={() => handleDistributeStat('dex')}
+                                  disabled={!room || (playerInfo?.statPoints ?? 0) <= 0}
+                              >
+                                  +
+                              </button>
+                          </div>
+                          <div className="ro-stat-row">
+                              <span>LUK:</span>
+                              <strong>{playerInfo?.luk ?? 1}</strong>
+                              <button
+                                  className="ro-plus-btn"
+                                  onClick={() => handleDistributeStat('luk')}
+                                  disabled={!room || (playerInfo?.statPoints ?? 0) <= 0}
+                              >
+                                  +
+                              </button>
+                          </div>
+            </div>
+
+            <div className="ro-divider" />
+
+                      <div className="ro-derived-stats">
+                          <div>
+                              <span>ATK:</span>
+                              <span>{playerInfo?.atk ?? 0}</span>
+                          </div>
+
+                          <div>
+                              <span>MATK:</span>
+                              <span>{playerInfo?.matk ?? 0}</span>
+                          </div>
+
+                          <div>
+                              <span>DEF:</span>
+                              <span>{playerInfo?.def ?? 0}</span>
+                          </div>
+
+                          <div>
+                              <span>MDEF:</span>
+                              <span>{playerInfo?.magicDefense ?? 0}</span>
+                          </div>
+
+                          <div>
+                              <span>HIT:</span>
+                              <span>{playerInfo?.hit ?? 0}</span>
+                          </div>
+
+                          <div>
+                              <span>FLEE:</span>
+                              <span>{playerInfo?.flee ?? 0}</span>
+                          </div>
+
+                          <div>
+                              <span>CRIT:</span>
+                              <span>{playerInfo?.crit ?? 0}%</span>
+                          </div>
+
+                          <div>
+                              <span>ASPD:</span>
+                              <span>{playerInfo?.aspd ?? 0}</span>
+                          </div>
+                      </div>
+
+            <div className="ro-stat-points">
+                          <span>
+                              Status Points Available:
+                              <strong>{playerInfo?.statPoints ?? 0}</strong>
+                          </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 4. Inventory Window (Alt+E / I) ── */}
+      {showInventory && (
+        <div className="ro-window ro-inventory-window">
+          <div className="ro-window-titlebar">
+            <span>Inventory (I)</span>
+            <button className="ro-close-btn" onClick={toggleInventory}>✕</button>
+          </div>
+          <div className="ro-window-body">
+            <div className="ro-inventory-grid">
+              {inventoryItems.map((item) => (
+                <div key={item.id} className="ro-item-slot" title={`${item.name} - ${item.description}`}>
+                  <span className="ro-item-icon">{item.icon}</span>
+                  <span className="ro-item-count">{item.count}</span>
+                </div>
+              ))}
+              {Array.from({ length: Math.max(0, 16 - inventoryItems.length) }).map((_, idx) => (
+                <div key={idx} className="ro-item-slot empty" />
+              ))}
+            </div>
+            <div className="ro-inventory-footer">
+              <span>Weight: 120 / 2000</span>
+              <span>Zeny: 1,500 z</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 5. Skill Window (Alt+S) ── */}
+      {showSkills && (
+        <div className="ro-window ro-skill-window">
+          <div className="ro-window-titlebar">
+            <span>Skill Tree (S)</span>
+            <button className="ro-close-btn" onClick={toggleSkills}>✕</button>
+          </div>
+          <div className="ro-window-body">
+            <div className="ro-skill-list">
+              <div className="ro-skill-item">
+                <span className="ro-skill-icon">⚔️</span>
+                <div className="ro-skill-info">
+                  <strong>Bash (Lv. 5)</strong>
+                  <small>Single target heavy physical blow (150% ATK)</small>
+                </div>
+                <button className="ro-use-btn">Use</button>
+              </div>
+
+              <div className="ro-skill-item">
+                <span className="ro-skill-icon">🛡️</span>
+                <div className="ro-skill-info">
+                  <strong>Magnum Break (Lv. 3)</strong>
+                  <small>AoE Fire explosion around character</small>
+                </div>
+                <button className="ro-use-btn">Use</button>
+              </div>
+
+              <div className="ro-skill-item">
+                <span className="ro-skill-icon">💖</span>
+                <div className="ro-skill-info">
+                  <strong>Increase HP Recovery (Lv. 10)</strong>
+                  <small>Passive: Regenerates 50 HP every 10s</small>
+                </div>
+                <span className="ro-passive-tag">PASSIVE</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 6. Map Name & Radar ── */}
+      <div className="ro-window ro-minimap-info">
+        <span className="ro-map-title">Plains of Ash</span>
+        <small className="ro-map-coords">ash_field01</small>
+      </div>
+
+      {/* ── 7. Hotbar ── */}
+      <div className="ro-window ro-hotbar">
+        {['F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', 'F8', 'F9'].map((key, i) => (
+          <div key={key} className="ro-hotbar-slot">
+            <span className="ro-hotbar-key">{key}</span>
+            <div className="ro-hotbar-icon">
+              {i === 0 ? '⚔️' : i === 1 ? '🧪' : i === 2 ? '💧' : i === 3 ? '🛡️' : ''}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── 8. Chat Box ── */}
+      <div className="ro-window ro-chat-box">
+        <div className="ro-chat-logs">
+          {logs.map((log) => (
+            <div key={log.id} className="ro-log-line" style={{ color: log.color || '#ffffff' }}>
+              <span className="ro-log-time">[{log.timestamp}]</span> {log.text}
+            </div>
+          ))}
+          <div ref={logEndRef} />
+        </div>
+        <form onSubmit={handleSendChat} className="ro-chat-form">
+          <input
+            type="text"
+            className="ro-chat-input"
+            value={chatInput}
+            onChange={(e) => setChatInput(e.target.value)}
+            placeholder="Digite sua mensagem ou comando..."
+          />
+          <button type="submit" className="ro-chat-btn">Enviar</button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+
+==================== .\packages\server\src\game\inventory\InventoryService.ts ====================
+
+import prisma from "../../db/prisma";
+
+export class InventoryService {
+    /**
+     * Adiciona uma quantidade de um item ao inventário.
+     *
+     * Itens normais são empilhados por characterId + itemId.
+     *
+     * Retorna true quando a operação foi concluída.
+     * Retorna false quando não foi possível adicionar.
+     */
+    async addItem(
+        characterId: string,
+        itemId: number,
+        quantity: number,
+    ): Promise<boolean> {
+        if (!characterId) {
+            console.warn(
+                `[InventoryService] addItem rejected: invalid characterId`,
+            );
+
+            return false;
+        }
+
+        if (!Number.isInteger(itemId) || itemId <= 0) {
+            console.warn(
+                `[InventoryService] addItem rejected: invalid itemId=${itemId}`,
+            );
+
+            return false;
+        }
+
+        if (!Number.isInteger(quantity) || quantity <= 0) {
+            console.warn(
+                `[InventoryService] addItem rejected: invalid quantity=${quantity}`,
+            );
+
+            return false;
+        }
+
+        const item = await prisma.item.findUnique({
+            where: {
+                id: itemId,
+            },
+            select: {
+                id: true,
+                name: true,
+            },
+        });
+
+        if (!item) {
+            console.warn(
+                `[InventoryService] addItem rejected: item not found ` +
+                `itemId=${itemId}`,
+            );
+
+            return false;
+        }
+
+        const existing = await prisma.inventory.findFirst({
+            where: {
+                characterId,
+                itemId,
+                instanceId: null,
+            },
+        });
+
+        if (existing) {
+            await prisma.inventory.update({
+                where: {
+                    id: existing.id,
+                },
+                data: {
+                    quantity: {
+                        increment: quantity,
+                    },
+                },
+            });
+
+            console.log(
+                `[InventoryService] Item stacked: ` +
+                `${item.name} (${item.id}) ` +
+                `+${quantity} ` +
+                `total=${existing.quantity + quantity} ` +
+                `character=${characterId}`,
+            );
+
+            return true;
+        }
+
+        await prisma.inventory.create({
+            data: {
+                characterId,
+                itemId,
+                quantity,
+                slot: -1,
+                instanceId: null,
+                refineLevel: 0,
+            },
+        });
+
+        console.log(
+            `[InventoryService] Item added: ` +
+            `${item.name} (${item.id}) ` +
+            `quantity=${quantity} ` +
+            `character=${characterId}`,
+        );
+
+        return true;
+    }
+
+    async getInventory(characterId: string) {
+        if (!characterId) {
+            console.warn(
+                `[InventoryService] getInventory rejected: invalid characterId`,
+            );
+
+            return [];
+        }
+
+        const inventory = await prisma.inventory.findMany({
+            where: {
+                characterId,
+            },
+            include: {
+                item: {
+                    select: {
+                        id: true,
+                        name: true,
+                    },
+                },
+            },
+            orderBy: [
+                {
+                    slot: "asc",
+                },
+                {
+                    createdAt: "asc",
+                },
+            ],
+        });
+
+        return inventory.map((entry) => ({
+            id: entry.id,
+            itemId: entry.itemId,
+            itemName: entry.item.name,
+            quantity: entry.quantity,
+            slot: entry.slot,
+            instanceId: entry.instanceId,
+            refineLevel: entry.refineLevel,
+        }));
+    }
+    
+}
+
+export const inventoryService =
+    new InventoryService();
+
+
+==================== .\packages\server\src\rooms\WorldRoom.ts ====================
+
+import { Room, Client } from "colyseus";
+import { WorldState, Player, Mob, GroundDrop,} from "./schema/WorldState";
+import { gameDataService } from "../services/GameDataService";
+import { dropService } from "../game/drops/DropService";
+import CharacterSkillService from "../game/skills/CharacterSkillService";
+import { inventoryService } from "../game/inventory/InventoryService";
+import {
+    calcDef,
+    calcPhysicalDamage,
+} from "@heleonaire/shared";
+import prisma from "../db/prisma";
+import { MAP_DEFS } from "../maps/mapDefs";
+import {
+    StatSystem,
+    type StatKey,
+} from "../game/stats/StatSystem";
+
+export class WorldRoom extends Room<WorldState> {
+    maxClients = 100;
+
+    private mobCounter = 0;
+    private dropCounter = 0;
+
+    private playerAttackTimers: Map<string, number> = new Map();
+    private mobAttackTimers: Map<string, number> = new Map();
+
+    private processingDropPickups: Set<string> = new Set();
+
+    private statSystem = new StatSystem(prisma);
+    private characterSkillService = new CharacterSkillService();
+
+    private spawnGroundDrop(
+        itemId: number,
+        itemName: string,
+        quantity: number,
+        x: number,
+        y: number,
+        ownerId: string,
+    ) {
+        const drop = new GroundDrop();
+
+        drop.id = `drop_${++this.dropCounter}`;
+
+        drop.itemId = itemId;
+        drop.itemName = itemName;
+        drop.quantity = quantity;
+
+        drop.x = x;
+        drop.y = y;
+
+        drop.ownerId = ownerId;
+        drop.ownershipExpiresAt = Date.now() + 10_000;
+        drop.expiresAt = Date.now() + 60_000;
+
+        this.state.drops.set(drop.id, drop);
+
+        console.log(
+            `[WorldRoom] GroundDrop spawned: ` +
+            `${itemName} (${itemId}) ` +
+            `at (${Math.round(x)}, ${Math.round(y)}) ` +
+            `owner=${ownerId || "none"} ` +
+            `id=${drop.id}`,
+        );
+    }
+
+    private cleanupExpiredDrops() {
+        const now = Date.now();
+
+        this.state.drops.forEach((drop, dropId) => {
+            if (drop.expiresAt <= now) {
+                console.log(
+                    `[WorldRoom] GroundDrop expired: ` +
+                    `${drop.itemName} (${drop.itemId}) ` +
+                    `id=${dropId}`,
+                );
+
+                this.state.drops.delete(dropId);
+            }
+        });
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // GROUND DROP PICKUP
+    // ─────────────────────────────────────────────────────────────
+
+    private async handlePickupDrop(
+        client: Client,
+        message: { dropId?: string },
+    ) {
+        // ─────────────────────────────────────────────────────────
+        // PLAYER
+        // ─────────────────────────────────────────────────────────
+
+        const player =
+            this.state.players.get(
+                client.sessionId,
+            );
+
+        if (!player) {
+            console.warn(
+                `[WorldRoom] pickupDrop rejected: player not found ` +
+                `session=${client.sessionId}`,
+            );
+
+            return;
+        }
+
+        // ─────────────────────────────────────────────────────────
+        // DROP ID
+        // ─────────────────────────────────────────────────────────
+
+        const dropId =
+            message?.dropId;
+
+        if (
+            !dropId ||
+            typeof dropId !== "string"
+        ) {
+            console.warn(
+                `[WorldRoom] pickupDrop rejected: invalid dropId ` +
+                `session=${client.sessionId}`,
+            );
+
+            return;
+        }
+
+        // ─────────────────────────────────────────────────────────
+        // DROP EXISTS
+        // ─────────────────────────────────────────────────────────
+
+        const drop =
+            this.state.drops.get(
+                dropId,
+            );
+
+        if (!drop) {
+            console.warn(
+                `[WorldRoom] pickupDrop rejected: drop not found ` +
+                `drop=${dropId} ` +
+                `player=${player.name}`,
+            );
+
+            return;
+        }
+
+        const now =
+            Date.now();
+
+        // ─────────────────────────────────────────────────────────
+        // EXPIRATION
+        // ─────────────────────────────────────────────────────────
+        //
+        // O cleanup roda a cada segundo, mas fazemos a validação
+        // também aqui para impedir coleta de um drop que expirou
+        // entre dois ticks de cleanup.
+        // ─────────────────────────────────────────────────────────
+
+        if (
+            drop.expiresAt <= now
+        ) {
+            this.state.drops.delete(
+                dropId,
+            );
+
+            console.log(
+                `[WorldRoom] pickupDrop rejected: drop expired ` +
+                `drop=${dropId} ` +
+                `item=${drop.itemName} (${drop.itemId})`,
+            );
+
+            return;
+        }
+
+        // ─────────────────────────────────────────────────────────
+        // DISTANCE
+        // ─────────────────────────────────────────────────────────
+        //
+        // O cliente só informa qual drop deseja coletar.
+        // A posição do jogador e do drop são determinadas pelo servidor.
+        // ─────────────────────────────────────────────────────────
+
+        const pickupRange =
+            64;
+
+        const dx =
+            player.x -
+            drop.x;
+
+        const dy =
+            player.y -
+            drop.y;
+
+        const distanceSquared =
+            dx * dx +
+            dy * dy;
+
+        if (
+            distanceSquared >
+            pickupRange * pickupRange
+        ) {
+            console.warn(
+                `[WorldRoom] pickupDrop rejected: too far ` +
+                `player=${player.name} ` +
+                `drop=${dropId} ` +
+                `distance=${Math.sqrt(distanceSquared).toFixed(1)} ` +
+                `range=${pickupRange}`,
+            );
+
+            return;
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // OWNERSHIP
+        // ─────────────────────────────────────────────────────────────
+
+        if (
+            drop.ownershipExpiresAt > now &&
+            drop.ownerId !== client.sessionId
+        ) {
+            console.warn(
+                `[WorldRoom] pickupDrop rejected: not owner ` +
+                `player=${player.name} ` +
+                `drop=${dropId}`,
+            );
+
+            return;
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // PICKUP LOCK
+        // ─────────────────────────────────────────────────────────────
+
+        if (this.processingDropPickups.has(dropId)) {
+            console.warn(
+                `[WorldRoom] pickupDrop rejected: ` +
+                `already processing ` +
+                `drop=${dropId} ` +
+                `player=${player.name}`,
+            );
+
+            return;
+        }
+
+        this.processingDropPickups.add(dropId);
+
+        try {
+            const added =
+                await inventoryService.addItem(
+                    player.characterId,
+                    drop.itemId,
+                    drop.quantity,
+                );
+
+            if (!added) {
+                console.warn(
+                    `[WorldRoom] pickupDrop failed: ` +
+                    `inventory rejected item ` +
+                    `${drop.itemName} (${drop.itemId}) ` +
+                    `player=${player.name} ` +
+                    `drop=${dropId}`,
+                );
+
+                return;
+            }
+
+            // ─────────────────────────────────────────────────────────────
+            // SYNC INVENTORY
+            // ─────────────────────────────────────────────────────────────
+
+            const inventory =
+                await inventoryService.getInventory(
+                    player.characterId,
+                );
+
+            client.send("inventorySnapshot", {
+                items: inventory,
+            });
+
+            console.log(
+                `[WorldRoom] Inventory synchronized after pickup: ` +
+                `player=${player.name} ` +
+                `entries=${inventory.length}`,
+            );
+
+            // ─────────────────────────────────────────────────────────
+            // REMOVE GROUND DROP
+            // ─────────────────────────────────────────────────────────
+
+            this.state.drops.delete(
+                dropId,
+            );
+
+            console.log(
+                `[WorldRoom] GroundDrop picked up: ` +
+                `${drop.itemName} (${drop.itemId}) ` +
+                `quantity=${drop.quantity} ` +
+                `player=${player.name} ` +
+                `drop=${dropId}`,
+            );
+
+            console.log(
+                `[WorldRoom] GroundDrop deleted from state: ` +
+                `drop=${dropId} ` +
+                `exists=${this.state.drops.has(dropId)}`,
+            );
+        } finally {
+            this.processingDropPickups.delete(
+                dropId,
+            );
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // ROOM CREATE
+    // ─────────────────────────────────────────────────────────────
+
+    async onCreate(_options: any) {
+        this.setState(new WorldState());
+
+        await gameDataService.initialize();
+
+        const mapDef = MAP_DEFS[this.roomName];
+
+        if (!mapDef) {
+            console.error(
+                `[WorldRoom] No MAP_DEFS found for map "${this.roomName}"`,
+            );
+        }
+
+        // Spawn inicial dos mobs usando os dados importados do rAthena.
+        this.spawnInitialMobs(mapDef);
+
+        // ───────────────────────────────────────────────────────────
+        // CLIENT -> SERVER: MOVEMENT
+        // ───────────────────────────────────────────────────────────
+
+        this.onMessage("move", (client, data) => {
+            const player = this.state.players.get(client.sessionId);
+
+            if (
+                player &&
+                typeof data?.x === "number" &&
+                typeof data?.y === "number"
+            ) {
+                player.targetX = data.x;
+                player.targetY = data.y;
+            }
+        });
+
+        // ───────────────────────────────────────────────────────────
+        // LEARN SKILL
+        // ───────────────────────────────────────────────────────────
+
+        this.onMessage("learnSkill", async (client, data) => {
+            try {
+                const player = this.state.players.get(client.sessionId);
+
+                if (!player) {
+                    client.send("skillLearnResult", {
+                        success: false,
+                        reason: "PLAYER_NOT_FOUND",
+                    });
+                    return;
+                }
+
+                const skillId = Number(data?.skillId);
+
+                if (!Number.isInteger(skillId) || skillId <= 0) {
+                    client.send("skillLearnResult", {
+                        success: false,
+                        reason: "INVALID_SKILL_ID",
+                    });
+                    return;
+                }
+
+                const result = await this.characterSkillService.learnSkill(
+                    player.characterId,
+                    skillId
+                );
+
+                // Mantém o estado Colyseus sincronizado com o banco.
+                player.availableSkillPoints = result.availableSkillPoints;
+
+                client.send("skillLearnResult", {
+                    success: true,
+                    skillId: result.skill.skillId,
+                    level: result.skill.level,
+                    availableSkillPoints: result.availableSkillPoints,
+                });
+
+                console.log(
+                    `[WorldRoom] Skill learned: ` +
+                    `character=${player.characterId} ` +
+                    `name=${player.name} ` +
+                    `skill=${result.skill.skillId} ` +
+                    `level=${result.skill.level} ` +
+                    `remainingPoints=${result.availableSkillPoints}`
+                );
+            } catch (error) {
+                const reason =
+                    error instanceof Error
+                        ? error.message
+                        : "UNKNOWN_ERROR";
+
+                console.warn(
+                    `[WorldRoom] Failed to learn skill: ` +
+                    `session=${client.sessionId} ` +
+                    `reason=${reason}`
+                );
+
+                client.send("skillLearnResult", {
+                    success: false,
+                    reason,
+                });
+            }
+        });
+
+        // ───────────────────────────────────────────────────────────
+        // CLIENT -> SERVER: ATTACK
+        // ───────────────────────────────────────────────────────────
+
+        this.onMessage("attack", (client, data) => {
+            const player = this.state.players.get(client.sessionId);
+
+            if (
+                player &&
+                typeof data?.targetId === "string"
+            ) {
+                player.targetId = data.targetId;
+            }
+        });
+
+
+        // ───────────────────────────────────────────────────────────
+        // CLIENT -> SERVER: CLEAR TARGET
+        // ───────────────────────────────────────────────────────────
+
+        this.onMessage("clearTarget", (client) => {
+            const player = this.state.players.get(client.sessionId);
+
+            if (player) {
+                player.targetId = "";
+            }
+        });
+
+        // ───────────────────────────────────────────────────────────
+        // CLIENT -> SERVER: PICKUP GROUND DROP
+        // ───────────────────────────────────────────────────────────
+
+        this.onMessage("pickupDrop", (client, data) => {
+            this.handlePickupDrop(client, data);
+        });
+
+        // ───────────────────────────────────────────────────────────
+        // CLIENT -> SERVER: TELEPORT
+        // ───────────────────────────────────────────────────────────
+
+        this.onMessage("teleport", (client, data) => {
+            const player = this.state.players.get(client.sessionId);
+
+            if (
+                !player ||
+                typeof data?.targetMap !== "string"
+            ) {
+                return;
+            }
+
+            const validPortal = mapDef?.portals.find(
+                (portal) =>
+                    portal.targetMap === data.targetMap,
+            );
+
+            if (!validPortal) {
+                console.warn(
+                    `[WorldRoom] Rejected teleport to "${data.targetMap}" from "${this.roomName}"`,
+                );
+
+                return;
+            }
+
+            // O client será responsável por sair desta room
+            // e entrar na room do mapa de destino.
+            client.send("teleportApproved", {
+                targetMap: data.targetMap,
+            });
+        });
+
+        // ───────────────────────────────────────────────────────────
+        // CLIENT -> SERVER: DISTRIBUTE STAT
+        // ───────────────────────────────────────────────────────────
+
+        this.onMessage("distributeStat", async (client, data) => {
+            const player =
+                this.state.players.get(
+                    client.sessionId,
+                );
+
+            if (!player) {
+                return;
+            }
+
+            // ─────────────────────────────────────────────────────
+            // VALIDATION
+            // ─────────────────────────────────────────────────────
+
+            const validStats: StatKey[] = [
+                "str",
+                "agi",
+                "vit",
+                "int",
+                "dex",
+                "luk",
+            ];
+
+            if (
+                typeof data?.stat !== "string" ||
+                !validStats.includes(
+                    data.stat as StatKey,
+                )
+            ) {
+                client.send("statDistributionResult", {
+                    success: false,
+                    error: "Atributo inválido.",
+                });
+
+                return;
+            }
+
+            const amount =
+                data?.amount ?? 1;
+
+            if (
+                !Number.isInteger(amount) ||
+                amount <= 0 ||
+                amount > 100
+            ) {
+                client.send("statDistributionResult", {
+                    success: false,
+                    error: "Quantidade inválida.",
+                });
+
+                return;
+            }
+
+            const stat =
+                data.stat as StatKey;
+
+            try {
+                // ─────────────────────────────────────────────────
+                // CURRENT STATS
+                // ─────────────────────────────────────────────────
+
+                const currentStats = {
+                    str: player.str,
+                    agi: player.agi,
+                    vit: player.vit,
+                    int: player.int,
+                    dex: player.dex,
+                    luk: player.luk,
+                };
+
+                // ─────────────────────────────────────────────────
+                // CALCULATE / VALIDATE COST
+                // ─────────────────────────────────────────────────
+
+                const result =
+                    this.statSystem.increaseStat(
+                        currentStats,
+                        player.availablePoints,
+                        stat,
+                        amount,
+                    );
+
+                // ─────────────────────────────────────────────────
+                // UPDATE RUNTIME PLAYER
+                // ─────────────────────────────────────────────────
+
+                player.str =
+                    result.stats.str;
+
+                player.agi =
+                    result.stats.agi;
+
+                player.vit =
+                    result.stats.vit;
+
+                player.int =
+                    result.stats.int;
+
+                player.dex =
+                    result.stats.dex;
+
+                player.luk =
+                    result.stats.luk;
+
+                player.availablePoints =
+                    result.availablePoints;
+
+                // ─────────────────────────────────────────────────
+                // RECALCULATE DERIVED STATS
+                // ─────────────────────────────────────────────────
+
+                this.recalculatePlayerStats(
+                    player,
+                );
+
+                // ─────────────────────────────────────────────────
+                // PERSIST DATABASE
+                // ─────────────────────────────────────────────────
+
+                await prisma.character.update({
+                    where: {
+                        id: player.characterId,
+                    },
+
+                    data: {
+                        str: player.str,
+                        agi: player.agi,
+                        vit: player.vit,
+                        int: player.int,
+                        dex: player.dex,
+                        luk: player.luk,
+
+                        availablePoints:
+                            player.availablePoints,
+
+                        hp:
+                            player.hp,
+
+                        maxHp:
+                            player.maxHp,
+
+                        mp:
+                            player.mp,
+
+                        maxMp:
+                            player.maxMp,
+                    },
+                });
+
+                // ─────────────────────────────────────────────────
+                // RESULT
+                // ─────────────────────────────────────────────────
+
+                client.send(
+                    "statDistributionResult",
+                    {
+                        success: true,
+
+                        stat,
+
+                        amount,
+
+                        cost:
+                            result.cost,
+
+                        availablePoints:
+                            player.availablePoints,
+
+                        stats: {
+                            str:
+                                player.str,
+
+                            agi:
+                                player.agi,
+
+                            vit:
+                                player.vit,
+
+                            int:
+                                player.int,
+
+                            dex:
+                                player.dex,
+
+                            luk:
+                                player.luk,
+                        },
+
+                        derived: {
+                            maxHp:
+                                player.maxHp,
+
+                            maxMp:
+                                player.maxMp,
+
+                            atk:
+                                player.atk,
+
+                            matk:
+                                player.matk,
+
+                            def:
+                                player.def,
+
+                            magicDefense:
+                                player.magicDefense,
+
+                            hit:
+                                player.hit,
+
+                            flee:
+                                player.flee,
+
+                            crit:
+                                player.crit,
+                        },
+                    },
+                );
+
+                console.log(
+                    `[WorldRoom] ${player.name} distributed ` +
+                    `${amount} point(s) into ${stat}. ` +
+                    `Cost: ${result.cost} | ` +
+                    `Remaining: ${player.availablePoints}`,
+                );
+            } catch (error) {
+                const message =
+                    error instanceof Error
+                        ? error.message
+                        : "Failed to distribute stat.";
+
+                client.send(
+                    "statDistributionResult",
+                    {
+                        success: false,
+                        error: message,
+                    },
+                );
+            }
+        });
+
+        // ───────────────────────────────────────────────────────────
+        // GROUND DROP CLEANUP
+        // ───────────────────────────────────────────────────────────
+
+        this.clock.setInterval(() => {
+            this.cleanupExpiredDrops();
+        }, 1000);
+
+        
+
+        // ───────────────────────────────────────────────────────────
+        // GAME LOOP
+        // ───────────────────────────────────────────────────────────
+
+        this.setSimulationInterval(
+            (deltaTime) =>
+                this.updateLoop(deltaTime),
+            50,
+        );
+
+        console.log(
+            "[WorldRoom] Created and running simulation tick.",
+        );
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // STAT SYSTEM
+    // ─────────────────────────────────────────────────────────────
+
+    /**
+     * Recalcula todos os atributos derivados do jogador.
+     *
+     * Os atributos base são:
+     *
+     * STR
+     * AGI
+     * VIT
+     * INT
+     * DEX
+     * LUK
+     *
+     * O StatSystem transforma esses valores em:
+     *
+     * HP
+     * MP
+     * ATK
+     * MATK
+     * DEF
+     * MDEF
+     * HIT
+     * FLEE
+     * CRIT
+     *
+     * As fórmulas atuais do StatSystem ainda são provisórias.
+     * Posteriormente serão substituídas pelas fórmulas definitivas
+     * baseadas no rAthena.
+     */
+    private recalculatePlayerStats(
+        player: Player,
+    ) {
+        const derived =
+            this.statSystem.calculateDerivedStats({
+                str: player.str,
+                agi: player.agi,
+                vit: player.vit,
+                int: player.int,
+                dex: player.dex,
+                luk: player.luk,
+            });
+
+        const oldMaxHp =
+            player.maxHp;
+
+        const oldMaxMp =
+            player.maxMp;
+
+        // ─────────────────────────────────────────────────────────
+        // DERIVED COMBAT STATS
+        // ─────────────────────────────────────────────────────────
+
+        player.maxHp =
+            derived.maxHp;
+
+        player.maxMp =
+            derived.maxMp;
+
+        player.atk =
+            derived.atk;
+
+        player.matk =
+            derived.matk;
+
+        player.def =
+            derived.defense;
+
+        player.magicDefense =
+            derived.magicDefense;
+
+        player.hit =
+            derived.hit;
+
+        player.flee =
+            derived.flee;
+
+        player.crit =
+            derived.crit;
+
+        // ─────────────────────────────────────────────────────────
+        // CURRENT HP
+        // ─────────────────────────────────────────────────────────
+        //
+        // Se estava com HP cheio antes do recálculo,
+        // acompanha o novo máximo.
+        //
+        // Caso contrário, mantém o HP atual, limitado ao novo máximo.
+
+        if (player.hp >= oldMaxHp) {
+            player.hp =
+                player.maxHp;
+        } else {
+            player.hp =
+                Math.min(
+                    player.hp,
+                    player.maxHp,
+                );
+        }
+
+        // ─────────────────────────────────────────────────────────
+        // CURRENT MP
+        // ─────────────────────────────────────────────────────────
+
+        if (player.mp >= oldMaxMp) {
+            player.mp =
+                player.maxMp;
+        } else {
+            player.mp =
+                Math.min(
+                    player.mp,
+                    player.maxMp,
+                );
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // EXP CURVE
+    // ─────────────────────────────────────────────────────────────
+
+    /**
+     * Temporário.
+     *
+     * Atualmente a curva de EXP do protótipo é:
+     *
+     * Lv 1 -> 100
+     * Lv 2 -> 150
+     * Lv 3 -> 225
+     * Lv 4 -> 337
+     * ...
+     *
+     * Posteriormente devemos substituir isso por uma tabela
+     * importada do rAthena, assim como fizemos com statpoint.yml.
+     */
+    private calculateBaseExpRequired(
+        level: number,
+    ): number {
+        if (level <= 1) {
+            return 100;
+        }
+
+        let exp = 100;
+
+        for (
+            let i = 1;
+            i < level;
+            i++
+        ) {
+            exp =
+                Math.floor(
+                    exp * 1.5,
+                );
+        }
+
+        return exp;
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // MOB SPAWN
+    // ─────────────────────────────────────────────────────────────
+
+    private spawnInitialMobs(
+        mapDef?: {
+            mobDbIds: number[];
+            mobCount: number;
+        },
+    ) {
+        const mobDbIds =
+            mapDef?.mobDbIds ??
+            [
+                1001,
+                1002,
+                1004,
+                1005,
+            ];
+
+        const count =
+            mapDef?.mobCount ?? 15;
+
+        for (
+            let i = 0;
+            i < count;
+            i++
+        ) {
+            const dbId =
+                mobDbIds[
+                    i % mobDbIds.length
+                ];
+
+            const rMob =
+                gameDataService.getMob(dbId);
+
+            const mob =
+                new Mob();
+
+            mob.id =
+                `mob_${ ++this.mobCounter }`;
+
+            mob.mobDbId =
+                dbId;
+
+            mob.name =
+                rMob
+                    ? rMob.name
+                    : "Skeleton Grunt";
+
+            mob.level =
+                rMob
+                    ? rMob.level
+                    : 5;
+
+            mob.hp =
+                rMob
+                    ? rMob.hp
+                    : 80;
+
+            mob.maxHp =
+                rMob
+                    ? rMob.hp
+                    : 80;
+
+            mob.atk =
+                rMob
+                    ? rMob.attack
+                    : 15;
+
+            mob.def =
+                rMob
+                    ? rMob.defense
+                    : 5;
+
+            mob.exp =
+                rMob
+                    ? rMob.baseExp || 40
+                    : 40;
+
+            mob.x =
+                Math.floor(
+                    Math.random() *
+                        800 +
+                        100,
+                );
+
+            mob.y =
+                Math.floor(
+                    Math.random() *
+                        800 +
+                        100,
+                );
+
+            mob.targetX =
+                mob.x;
+
+            mob.targetY =
+                mob.y;
+
+            mob.spriteKey =
+                "skeleton";
+
+            this.state.mobs.set(
+                mob.id,
+                mob,
+            );
+        }
+
+        console.log(
+            `[WorldRoom] Spawned ${ count } mobs in "${this.roomName}".`,
+        );
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // GAME LOOP
+    // ─────────────────────────────────────────────────────────────
+
+    private updateLoop(
+        _deltaTime: number,
+    ) {
+        const now =
+            Date.now();
+
+        // ───────────────────────────────────────────────────────────
+        // 1. PLAYERS
+        // ───────────────────────────────────────────────────────────
+
+        this.state.players.forEach(
+            (player, sessionId) => {
+                // ───────────────────────────────────────────────────────
+                // Movement
+                // ───────────────────────────────────────────────────────
+
+                const pdx =
+                    player.targetX -
+                    player.x;
+
+                const pdy =
+                    player.targetY -
+                    player.y;
+
+                const dist =
+                    Math.hypot(
+                        pdx,
+                        pdy,
+                    );
+
+                if (dist > 4) {
+                    const moveSpeed =
+                        3.5;
+
+                    player.x +=
+                        (pdx / dist) *
+                        Math.min(
+                            dist,
+                            moveSpeed,
+                        );
+
+                    player.y +=
+                        (pdy / dist) *
+                        Math.min(
+                            dist,
+                            moveSpeed,
+                        );
+                }
+
+                // ───────────────────────────────────────────────────────
+                // Auto Attack
+                // ───────────────────────────────────────────────────────
+
+                if (!player.targetId) {
+                    return;
+                }
+
+                const targetMob =
+                    this.state.mobs.get(
+                        player.targetId,
+                    );
+
+                if (
+                    !targetMob ||
+                    targetMob.isDead
+                ) {
+                    player.targetId =
+                        "";
+
+                    return;
+                }
+
+                const mDist =
+                    Math.hypot(
+                        targetMob.x -
+                            player.x,
+                        targetMob.y -
+                            player.y,
+                    );
+
+                const attackRange =
+                    40;
+
+                if (
+                    mDist >
+                    attackRange
+                ) {
+                    // Move toward target.
+                    player.targetX =
+                        targetMob.x;
+
+                    player.targetY =
+                        targetMob.y;
+
+                    return;
+                }
+
+                // ───────────────────────────────────────────────────────
+                // ASPD
+                // ───────────────────────────────────────────────────────
+
+                const lastAttack =
+                    this.playerAttackTimers.get(
+                        sessionId,
+                    ) ?? 0;
+
+                if (
+                    now -
+                        lastAttack >=
+                    player.aspd
+                ) {
+                    this.playerAttackTimers.set(
+                        sessionId,
+                        now,
+                    );
+
+                    void this.processPlayerAttack(
+                        player,
+                        targetMob,
+                        sessionId,
+                    );
+                }
+            },
+        );
+
+        // ───────────────────────────────────────────────────────────
+        // 2. MOBS
+        // ───────────────────────────────────────────────────────────
+
+        this.state.mobs.forEach(
+            (mob) => {
+                if (mob.isDead) {
+                    return;
+                }
+
+                // ───────────────────────────────────────────────────────
+                // Random Wander
+                // ───────────────────────────────────────────────────────
+
+                if (
+                    Math.random() <
+                        0.02 &&
+                    !mob.targetId
+                ) {
+                    mob.targetX =
+                        Math.max(
+                            60,
+                            Math.min(
+                                1200,
+                                mob.x +
+                                    (Math.random() *
+                                        200 -
+                                        100),
+                            ),
+                        );
+
+                    mob.targetY =
+                        Math.max(
+                            60,
+                            Math.min(
+                                1200,
+                                mob.y +
+                                    (Math.random() *
+                                        200 -
+                                        100),
+                            ),
+                        );
+                }
+
+                // ───────────────────────────────────────────────────────
+                // Movement
+                // ───────────────────────────────────────────────────────
+
+                const mdx =
+                    mob.targetX -
+                    mob.x;
+
+                const mdy =
+                    mob.targetY -
+                    mob.y;
+
+                const mDist =
+                    Math.hypot(
+                        mdx,
+                        mdy,
+                    );
+
+                if (mDist > 4) {
+                    mob.x +=
+                        (mdx / mDist) *
+                        Math.min(
+                            mDist,
+                            1.5,
+                        );
+
+                    mob.y +=
+                        (mdy / mDist) *
+                        Math.min(
+                            mDist,
+                            1.5,
+                        );
+                }
+
+                // ───────────────────────────────────────────────────────
+                // Aggro
+                // ───────────────────────────────────────────────────────
+
+                if (!mob.targetId) {
+                    let nearestPlayer:
+                        Player | undefined;
+
+                    let nearestDistance =
+                        Infinity;
+
+                    this.state.players.forEach(
+                        (player) => {
+                            const distance =
+                                Math.hypot(
+                                    player.x -
+                                        mob.x,
+                                    player.y -
+                                        mob.y,
+                                );
+
+                            if (
+                                distance <
+                                    150 &&
+                                distance <
+                                    nearestDistance
+                            ) {
+                                nearestDistance =
+                                    distance;
+
+                                nearestPlayer =
+                                    player;
+                            }
+                        },
+                    );
+
+                    if (nearestPlayer) {
+                        // Encontramos o sessionId
+                        // correspondente ao player.
+                        this.state.players.forEach(
+                            (
+                                player,
+                                sessionId,
+                            ) => {
+                                if (
+                                    player ===
+                                    nearestPlayer
+                                ) {
+                                    mob.targetId =
+                                        sessionId;
+                                }
+                            },
+                        );
+                    }
+                } else {
+                    const targetPlayer =
+                        this.state.players.get(
+                            mob.targetId,
+                        );
+
+                    if (!targetPlayer) {
+                        mob.targetId =
+                            "";
+
+                        return;
+                    }
+
+                    const pDist =
+                        Math.hypot(
+                            targetPlayer.x -
+                                mob.x,
+                            targetPlayer.y -
+                                mob.y,
+                        );
+
+                    // Target perdeu aggro.
+                    if (pDist > 250) {
+                        mob.targetId =
+                            "";
+
+                        return;
+                    }
+
+                    // ─────────────────────────────────────────────────────
+                    // Mob Attack
+                    // ─────────────────────────────────────────────────────
+
+                    if (
+                        pDist <=
+                        40
+                    ) {
+                        const lastMobAttack =
+                            this.mobAttackTimers.get(
+                                mob.id,
+                            ) ?? 0;
+
+                        if (
+                            now -
+                                lastMobAttack >=
+                            1500
+                        ) {
+                            this.mobAttackTimers.set(
+                                mob.id,
+                                now,
+                            );
+
+                            this.processMobAttack(
+                                mob,
+                                targetPlayer,
+                            );
+                        }
+                    } else {
+                        mob.targetX =
+                            targetPlayer.x;
+
+                        mob.targetY =
+                            targetPlayer.y;
+                    }
+                }
+            },
+        );
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // PLAYER ATTACK
+    // ─────────────────────────────────────────────────────────────
+
+    private async processPlayerAttack(
+        player: Player,
+        mob: Mob,
+        _sessionId: string,
+    ) {
+        // ───────────────────────────────────────────────────────────
+        // Critical
+        // ───────────────────────────────────────────────────────────
+
+        const isCrit =
+            Math.random() *
+                100 <
+            player.crit;
+
+        // ───────────────────────────────────────────────────────────
+        // Hit / Flee
+        // ───────────────────────────────────────────────────────────
+
+        const hitRate =
+            player.hit;
+
+        const fleeRate =
+            mob.level;
+
+        const finalHitRate =
+            Math.min(
+                95,
+                Math.max(
+                    5,
+                    hitRate -
+                        fleeRate +
+                        80,
+                ),
+            );
+
+        // ───────────────────────────────────────────────────────────
+        // Hit Roll
+        // ───────────────────────────────────────────────────────────
+
+        if (
+            Math.random() *
+                100 >
+                finalHitRate &&
+            !isCrit
+        ) {
+            this.broadcast(
+                "combatLog",
+                {
+                    attacker:
+                        player.name,
+
+                    target:
+                        mob.name,
+
+                    type:
+                        "miss",
+
+                    damage:
+                        0,
+
+                    x:
+                        mob.x,
+
+                    y:
+                        mob.y,
+                },
+            );
+
+            return;
+        }
+
+        // ───────────────────────────────────────────────────────────
+        // Damage
+        // ───────────────────────────────────────────────────────────
+
+        const rawAtk =
+            player.atk;
+
+        const softDef =
+            calcDef(
+                mob.level,
+                mob.def,
+            );
+
+        const finalDamage =
+            calcPhysicalDamage(
+                rawAtk,
+                softDef,
+                isCrit,
+            );
+
+        mob.hp =
+            Math.max(
+                0,
+                mob.hp -
+                    finalDamage,
+            );
+
+        this.broadcast(
+            "damage",
+            {
+                targetId:
+                    mob.id,
+
+                damage:
+                    finalDamage,
+
+                isCrit,
+
+                x:
+                    mob.x,
+
+                y:
+                    mob.y,
+
+                targetType:
+                    "mob",
+            },
+        );
+
+        this.broadcast(
+            "combatLog",
+            {
+                text:
+                    `${ player.name } causou ${ finalDamage } ` +
+                    `${ isCrit ? "CRÍTICO " : "" } ` +
+                    `de dano em ${ mob.name } !`,
+
+                color:
+                    isCrit
+                        ? "#ffcc00"
+                        : "#ffffff",
+            },
+        );
+
+        // ─────────────────────────────────────────────────────────────
+        // MOB DEATH
+        // ─────────────────────────────────────────────────────────────
+
+        if (
+            mob.hp <= 0
+        ) {
+            mob.isDead =
+                true;
+
+            mob.targetId =
+                "";
+
+            player.targetId =
+                "";
+
+            // ─────────────────────────────────────────────────────────
+            // DROPS
+            // ─────────────────────────────────────────────────────────
+
+            const rolledDrops =
+                dropService.rollDrops(
+                    mob.mobDbId,
+                );
+
+            for (const drop of rolledDrops) {
+                const item = gameDataService.getItem(drop.itemId);
+
+                if (!item) {
+                    console.warn(
+                        `[WorldRoom] Drop item not found: ` +
+                        `mob=${mob.mobDbId} ` +
+                        `item=${drop.itemId} ` +
+                        `source=${drop.sourceKey ?? "unknown"}`,
+                    );
+
+                    continue;
+                }
+
+                console.log(
+                    `[WorldRoom] Drop rolled: ` +
+                    `mob=${mob.name} (${mob.mobDbId}) ` +
+                    `item=${item.name} (${item.id}) ` +
+                    `rate=${drop.rate} ` +
+                    `source=${drop.sourceKey ?? "unknown"}`,
+                );
+
+                this.spawnGroundDrop(
+                    item.id,
+                    item.name,
+                    1,
+                    mob.x,
+                    mob.y,
+                    player.id,
+                );
+
+                this.broadcast(
+                    "combatLog",
+                    {
+                        text: `${mob.name} dropou ${item.name}!`,
+                        color: "#ffcc00",
+                    },
+                );
+            }
+
+            // ─────────────────────────────────────────────────────────
+            // EXP
+            // ─────────────────────────────────────────────────────────
+
+            const expGained =
+                mob.exp;
+
+            player.baseExp +=
+                expGained;
+
+            this.broadcast(
+                "combatLog",
+                {
+                    text:
+                        `Derrotou ${ mob.name } ! ` +
+                        `Ganhou ${ expGained } Base EXP.`,
+
+                    color:
+                        "#00ffaa",
+                },
+            );
+
+            // ─────────────────────────────────────────────────────────
+            // LEVEL UP
+            // ─────────────────────────────────────────────────────────
+
+            while (
+                player.baseExp >=
+                player.maxBaseExp
+            ) {
+                const previousLevel =
+                    player.level;
+
+                player.baseExp -=
+                    player.maxBaseExp;
+
+                player.level +=
+                    1;
+
+                // statpoint.yml possui pontos cumulativos.
+                //
+                // Ex:
+                //
+                // Lv1 = 48
+                // Lv2 = 51
+                //
+                // Ganho ao passar Lv1 -> Lv2:
+                //
+                // 51 - 48 = 3
+                const pointsGained =
+                    await this.statSystem.getLevelUpPoints(
+                        previousLevel,
+                    );
+
+                player.availablePoints +=
+                    pointsGained;
+
+                // Curva temporária de EXP.
+                // Calcula novamente a necessidade
+                // correspondente ao novo nível.
+                player.maxBaseExp =
+                    this.calculateBaseExpRequired(
+                        player.level,
+                    );
+
+                // IMPORTANTE:
+                //
+                // Nenhum atributo é aumentado
+                // automaticamente.
+                //
+                // STR / AGI / VIT / INT / DEX / LUK
+                // permanecem exatamente como estavam.
+
+                this.broadcast(
+                    "combatLog",
+                    {
+                        text:
+                            `${ player.name } SUBIU PARA ` +
+                            `O NÍVEL ${ player.level } ! ` +
+                            `+ ${ pointsGained } pontos de atributo.`,
+
+                        color:
+                            "#ffbb00",
+                    },
+                );
+
+                this.broadcast(
+                    "levelUp",
+                    {
+                        level:
+                            player.level,
+
+                        availablePoints:
+                            player.availablePoints,
+
+                        stats:
+                        {
+                            str:
+                                player.str,
+
+                            agi:
+                                player.agi,
+
+                            vit:
+                                player.vit,
+
+                            int:
+                                player.int,
+
+                            dex:
+                                player.dex,
+
+                            luk:
+                                player.luk,
+                        },
+                    },
+                );
+            }
+
+            // ─────────────────────────────────────────────────────────
+            // MOB RESPAWN
+            // ─────────────────────────────────────────────────────────
+
+            setTimeout(
+                () => {
+                    if (
+                        this.state.mobs.has(
+                            mob.id,
+                        )
+                    ) {
+                        mob.hp =
+                            mob.maxHp;
+
+                        mob.isDead =
+                            false;
+
+                        mob.targetId =
+                            "";
+
+                        mob.x =
+                            Math.floor(
+                                Math.random() *
+                                    800 +
+                                    100,
+                            );
+
+                        mob.y =
+                            Math.floor(
+                                Math.random() *
+                                    800 +
+                                    100,
+                            );
+
+                        mob.targetX =
+                            mob.x;
+
+                        mob.targetY =
+                            mob.y;
+                    }
+                },
+                10000,
+            );
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // MOB ATTACK
+    // ─────────────────────────────────────────────────────────────
+
+    private processMobAttack(
+        mob: Mob,
+        player: Player,
+    ) {
+        const rawAtk =
+            mob.atk;
+
+        const playerDef =
+            calcDef(
+                player.vit,
+                player.def,
+            );
+
+        const damage =
+            Math.max(
+                1,
+                rawAtk -
+                    playerDef,
+            );
+
+        player.hp =
+            Math.max(
+                0,
+                player.hp -
+                    damage,
+            );
+
+        this.broadcast(
+            "damage",
+            {
+                targetId:
+                    player.id,
+
+                damage,
+
+                isCrit:
+                    false,
+
+                x:
+                    player.x,
+
+                y:
+                    player.y,
+
+                targetType:
+                    "player",
+            },
+        );
+
+        this.broadcast(
+            "combatLog",
+            {
+                text:
+                    `${ mob.name } causou ${ damage } ` +
+                    `de dano em ${ player.name } !`,
+
+                color:
+                    "#ff4444",
+            },
+        );
+
+        // ───────────────────────────────────────────────────────────
+        // PLAYER DEATH
+        // ───────────────────────────────────────────────────────────
+
+        if (
+            player.hp <= 0
+        ) {
+            this.broadcast(
+                "combatLog",
+                {
+                    text:
+                        `${ player.name } foi derrotado ` +
+                        `por ${ mob.name } !`,
+
+                    color:
+                        "#ff0000",
+                },
+            );
+
+            // Temporário:
+            // posteriormente teremos DeathSystem,
+            // respawn, perda de EXP, estado morto etc.
+
+            player.hp =
+                player.maxHp;
+
+            player.x =
+                200;
+
+            player.y =
+                200;
+
+            player.targetX =
+                200;
+
+            player.targetY =
+                200;
+
+            player.targetId =
+                "";
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // PLAYER JOIN
+    // ─────────────────────────────────────────────────────────────
+
+    async onJoin(
+        client: Client,
+        options: any,
+    ) {
+        // IMPORTANTE:
+        // Não imprimir `options` inteiro porque ele contém
+        // o JWT de autenticação.
+        console.log(
+            client.sessionId,
+            "joining world with characterId:",
+            options?.characterId,
+        );
+
+        if (
+            !options?.characterId
+        ) {
+            client.leave();
+            return;
+        }
+
+        try {
+            // ─────────────────────────────────────────────────────────
+            // LOAD CHARACTER
+            // ─────────────────────────────────────────────────────────
+
+            const char =
+                await prisma.character.findUnique(
+                    {
+                        where:
+                        {
+                            id:
+                                options.characterId,
+                        },
+                    },
+                );
+
+            if (!char) {
+                console.warn(
+                    `[WorldRoom] Character not found: ${ options.characterId } `,
+                );
+
+                client.leave();
+                return;
+            }
+
+            // ─────────────────────────────────────────────────────────
+            // SPAWN
+            // ─────────────────────────────────────────────────────────
+
+            const mapDef =
+                MAP_DEFS[
+                    this.roomName
+                ];
+
+            const cameFromSameMap =
+                char.mapId ===
+                this.roomName;
+
+            const spawn =
+                cameFromSameMap &&
+                mapDef
+                    ? {
+                        x:
+                            char.posX,
+
+                        y:
+                            char.posY,
+                    }
+                    : (
+                        mapDef?.defaultSpawn ??
+                        {
+                            x:
+                                200,
+
+                            y:
+                                200,
+                        }
+                    );
+
+            // ─────────────────────────────────────────────────────────
+            // CREATE RUNTIME PLAYER
+            // ─────────────────────────────────────────────────────────
+
+            const player =
+                new Player();
+
+            player.id = client.sessionId;
+            player.characterId = char.id;
+            player.name = char.name;
+            player.class = char.classKey;
+            player.jobKey = char.jobKey;
+            player.faction = char.faction;
+
+            // ─────────────────────────────────────────────────────────
+            // LEVEL / JOB / EXP
+            // ─────────────────────────────────────────────────────────
+
+            player.level =
+                char.level;
+
+            player.jobLevel =
+                char.jobLevel;
+
+            player.baseExp =
+                Number(
+                    char.baseExp,
+                );
+
+            player.jobExp =
+                Number(
+                    char.jobExp,
+                );
+
+            player.maxBaseExp =
+                this.calculateBaseExpRequired(
+                    player.level,
+                );
+
+            // ─────────────────────────────────────────────────────────
+            // BASE ATTRIBUTES
+            // ─────────────────────────────────────────────────────────
+
+            player.str =
+                char.str;
+
+            player.agi =
+                char.agi;
+
+            player.vit =
+                char.vit;
+
+            player.int =
+                char.int;
+
+            player.dex =
+                char.dex;
+
+            player.luk =
+                char.luk;
+
+            // ─────────────────────────────────────────────────────────
+            // AVAILABLE POINTS
+            // ─────────────────────────────────────────────────────────
+
+            player.availablePoints =
+                char.availablePoints;
+
+            player.availableSkillPoints =
+                char.availableSkillPoints;
+
+            // ─────────────────────────────────────────────────────────
+            // DERIVED STATS
+            // ─────────────────────────────────────────────────────────
+            //
+            // Os valores abaixo são calculados pelo StatSystem.
+            //
+            // Não carregamos maxHp/maxMp/ATK/DEF do banco como fonte
+            // de verdade porque são atributos derivados.
+
+            this.recalculatePlayerStats(
+                player,
+            );
+
+            // ─────────────────────────────────────────────────────────
+            // CURRENT HP / MP
+            // ─────────────────────────────────────────────────────────
+            //
+            // O banco guarda o estado atual.
+            // O StatSystem determina os valores máximos.
+
+            player.hp =
+                Math.min(
+                    char.hp,
+                    player.maxHp,
+                );
+
+            player.mp =
+                Math.min(
+                    char.mp,
+                    player.maxMp,
+                );
+
+            // ─────────────────────────────────────────────────────────
+            // POSITION
+            // ─────────────────────────────────────────────────────────
+
+            player.x =
+                spawn.x;
+
+            player.y =
+                spawn.y;
+
+            player.targetX =
+                spawn.x;
+
+            player.targetY =
+                spawn.y;
+
+            // ─────────────────────────────────────────────────────────
+            // ADD TO ROOM
+            // ─────────────────────────────────────────────────────────
+
+            this.state.players.set(
+                client.sessionId,
+                player,
+            );
+
+            // ─────────────────────────────────────────────────────────────
+            // INVENTORY
+            // ─────────────────────────────────────────────────────────────
+
+            const inventory =
+                await inventoryService.getInventory(
+                    player.characterId,
+                );
+
+            client.send("inventorySnapshot", {
+                items: inventory,
+            });
+
+            console.log(
+                `[WorldRoom] Inventory sent: ` +
+                `player=${player.name} ` +
+                `entries=${inventory.length}`,
+            );
+
+            console.log(
+                `[WorldRoom] Player ${ char.name } joined. ` +
+                `Lv ${ player.level } | ` +
+                `JobLv ${ player.jobLevel } | ` +
+                `STR ${ player.str } ` +
+                `AGI ${ player.agi } ` +
+                `VIT ${ player.vit } ` +
+                `INT ${ player.int } ` +
+                `DEX ${ player.dex } ` +
+                `LUK ${ player.luk } | ` +
+                `StatPoints ${ player.availablePoints } | ` +
+                `SkillPoints ${ player.availableSkillPoints } | ` +
+                `ATK ${ player.atk } | ` +
+                `DEF ${ player.def } | ` +
+                `MATK ${ player.matk } | ` +
+                `MDEF ${ player.magicDefense } | ` +
+                `HIT ${ player.hit } | ` +
+                `FLEE ${ player.flee } | ` +
+                `CRIT ${ player.crit } `,
+            );
+        } catch (error) {
+            console.error(
+                "[WorldRoom] onJoin error:",
+                error,
+            );
+
+            client.leave();
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // PLAYER LEAVE / PERSISTENCE
+    // ─────────────────────────────────────────────────────────────
+
+    async onLeave(
+        client: Client,
+        _consented: boolean,
+    ) {
+        const player =
+            this.state.players.get(
+                client.sessionId,
+            );
+
+        if (
+            player &&
+            player.characterId
+        ) {
+            try {
+                await prisma.character.update(
+                    {
+                        where:
+                        {
+                            id:
+                                player.characterId,
+                        },
+
+                        data:
+                        {
+                            // ─────────────────────────────────────────────
+                            // POSITION
+                            // ─────────────────────────────────────────────
+
+                            posX:
+                                player.x,
+
+                            posY:
+                                player.y,
+
+                            mapId:
+                                this.roomName,
+
+                            // ─────────────────────────────────────────────
+                            // LEVEL / JOB
+                            // ─────────────────────────────────────────────
+
+                            level:
+                                player.level,
+
+                            jobLevel:
+                                player.jobLevel,
+
+                            // ─────────────────────────────────────────────
+                            // EXPERIENCE
+                            // ─────────────────────────────────────────────
+
+                            baseExp:
+                                BigInt(
+                                    player.baseExp,
+                                ),
+
+                            jobExp:
+                                BigInt(
+                                    player.jobExp,
+                                ),
+
+                            // ─────────────────────────────────────────────
+                            // BASE ATTRIBUTES
+                            // ─────────────────────────────────────────────
+
+                            str:
+                                player.str,
+
+                            agi:
+                                player.agi,
+
+                            vit:
+                                player.vit,
+
+                            int:
+                                player.int,
+
+                            dex:
+                                player.dex,
+
+                            luk:
+                                player.luk,
+
+                            // ─────────────────────────────────────────────
+                            // AVAILABLE POINTS
+                            // ─────────────────────────────────────────────
+
+                            availablePoints:
+                                player.availablePoints,
+
+                            availableSkillPoints:
+                                player.availableSkillPoints,
+
+                            // ─────────────────────────────────────────────
+                            // HP / MP
+                            // ─────────────────────────────────────────────
+
+                            hp:
+                                player.hp,
+
+                            mp:
+                                player.mp,
+                        },
+                    },
+                );
+
+                console.log(
+                    `[WorldRoom] Saved ${ player.name }: ` +
+                    `Lv ${ player.level } | ` +
+                    `BaseEXP ${ player.baseExp } | ` +
+                    `StatPoints ${ player.availablePoints } `,
+                );
+            } catch (error) {
+                console.error(
+                    `[WorldRoom] Failed to save character ${ player.characterId }: `,
+                    error,
+                );
+            }
+        }
+
+        // Remove timers associated with this player.
+        this.playerAttackTimers.delete(
+            client.sessionId,
+        );
+
+        this.state.players.delete(
+            client.sessionId,
+        );
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // ROOM DISPOSE
+    // ─────────────────────────────────────────────────────────────
+
+    onDispose() {
+        console.log(
+            "room",
+            this.roomId,
+            "disposing...",
+        );
+    }
+}

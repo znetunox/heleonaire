@@ -1,0 +1,8 @@
+atualmente nós temos o
+A = acharacter Status
+S = Skill Tree
+I = Inventario
+
+Mas está faltando o Character panel, onde mostra os equipamentos que estão equipados 
+
+Vamos extender um pouco mais o Character status e acrescentar nesse painel, uma extensão com os slots de equipamentos

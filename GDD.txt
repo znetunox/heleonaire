@@ -1,0 +1,139 @@
+Como Criar um Jogo como World of Warcraft
+
+World of Warcraft (WoW) é um jogo de RPG online massivo para múltiplos jogadores (MMORPG) que chegou a alcançar doze milhões de assinantes em seu auge. Sua história, seu enorme mundo e seu impacto cultural fazem dele um dos maiores marcos da indústria dos videogames. O jogo combinou a construção e especialização de personagens típica dos RPGs baseados em classes, a exploração de um vasto mundo aberto e expandiu os elementos sociais dos jogos online que o antecederam, como Star Wars: Galaxies e RuneScape.
+
+Criar um jogo como World of Warcraft é uma tarefa gigantesca, que exige uma equipe numerosa e um orçamento extremamente elevado. Para desenvolver um MMORPG, o primeiro passo é criar um Documento de Design de Jogo (Game Design Document – GDD) que descreva toda a visão do projeto. Em seguida, é necessário reunir uma equipe com conhecimentos altamente especializados. MMORPGs exigem designers de jogos, engenheiros e programadores capazes de desenvolver e manter os sistemas específicos desse gênero.
+
+Observação: Existe um motivo para haver tão poucos jogos semelhantes ao WoW que realmente obtiveram sucesso. MMORPGs não apenas levam muito tempo para serem produzidos, exigem enorme quantidade de trabalho e custam milhões para serem desenvolvidos, como também disputam um mercado limitado de jogadores que precisam ser convencidos a abandonar outros jogos já estabelecidos. Muitas das etapas descritas neste guia são muito mais difíceis de executar do que parecem. Considere este material como um conjunto de recomendações voltadas para alguém que dispõe de orçamento praticamente ilimitado e grande disponibilidade de tempo e recursos.
+
+1. Crie um Documento de Design de Jogo (GDD) detalhado
+
+Elabore um documento de design extremamente detalhado para definir exatamente qual experiência a equipe pretende criar. O GDD serve para alinhar a visão do projeto entre todos os integrantes envolvidos no desenvolvimento. Como MMORPGs costumam levar vários anos — e, em alguns casos, mais de uma década — para serem concluídos, esse documento funciona como uma referência central durante toda a produção, evitando que diferentes membros interpretem as ideias de maneiras distintas. Sem um GDD sólido, o projeto tende a perder foco e se transformar em uma coleção de ideias desconexas.
+
+A complexidade de um MMORPG envolve inúmeros sistemas interligados, incluindo:
+
+Combate;
+Fabricação de itens (crafting);
+Progressão de níveis;
+Economia;
+Construção de classes;
+PvE;
+PvP;
+Entre muitos outros.
+
+Um bom GDD deve explicar como todos esses sistemas interagem, estabelecer regras claras, condições específicas e prever situações excepcionais, além de ajudar a evitar problemas de balanceamento e possíveis formas de exploração por parte dos jogadores. Devido ao enorme custo e à complexidade desse tipo de projeto, um planejamento cuidadoso costuma produzir resultados muito melhores do que improvisações constantes.
+
+Ainda assim, muitos estúdios optam por utilizar um GDD vivo, isto é, um documento que pode ser atualizado, expandido e revisado conforme o desenvolvimento do jogo avança.
+
+2. Monte uma equipe grande e altamente qualificada
+
+Reúna uma equipe ampla e especializada para garantir que o jogo alcance o nível esperado de conteúdo, estabilidade, equilíbrio e suporte contínuo após o lançamento. Um MMORPG não é apenas um produto; ele funciona como um serviço permanente que precisa permanecer ativo durante muitos anos.
+
+Jogos semelhantes ao WoW exigem uma infraestrutura extremamente complexa. É essencial contratar desenvolvedores experientes em:
+
+Arquitetura de servidores distribuídos;
+Bancos de dados para personagens;
+Balanceamento de carga;
+Sistemas antitrapaça;
+Atualizações ao vivo (live patching) sem perda dos dados dos jogadores.
+
+Embora a equipe inicial de World of Warcraft tivesse aproximadamente 60 desenvolvedores, centenas de profissionais adicionais trabalharam em testes de qualidade (QA) e suporte ao longo do projeto.
+
+Além dos programadores, o volume de conteúdo necessário exige:
+
+Artistas;
+Animadores;
+Designers de fases;
+Roteiristas;
+Designers de personagens;
+Designers de áudio;
+Especialistas em PvP;
+Especialistas em sistemas sociais;
+Designers de encontros (Encounter Designers).
+
+Também são necessários profissionais responsáveis por correção de bugs em tempo real, manutenção de servidores, atendimento aos jogadores e análise de dados para manter o jogo estável e equilibrado. Como os jogadores sempre encontram maneiras inesperadas de explorar o sistema, a equipe precisa responder rapidamente para manter o balanceamento entre todas as classes e estilos de jogo.
+
+
+3. Garanta um orçamento substancial
+
+Obtenha um orçamento suficientemente grande para sustentar tanto o longo ciclo de desenvolvimento quanto o suporte contínuo após o lançamento. MMORPGs normalmente levam entre quatro e sete anos para serem desenvolvidos. Somando esse período à necessidade de manter uma equipe numerosa trabalhando em um mundo online que permanecerá ativo e receberá atualizações frequentes, os custos tornam-se inevitavelmente elevados.
+
+Um MMO do porte de World of Warcraft exige centenas de desenvolvedores, além de despesas com escritórios, licenças de software, gerenciamento, recursos humanos, equipes jurídicas, infraestrutura de TI e produção. Mesmo um estúdio menor, com cerca de cem a cento e cinquenta funcionários, pode atingir custos anuais de dezenas de milhões de dólares.
+
+Além disso, MMORPGs necessitam de equipes especializadas em:
+
+Engenharia de redes e backend;
+Arquitetura de servidores;
+Desenvolvimento de ferramentas internas;
+Balanceamento de sistemas;
+Testes de qualidade (QA).
+
+Também é preciso investir em grandes equipes de artistas, roteiristas, animadores, designers de fases e artistas de ambiente. Cada arma, armadura, criatura, feitiço, item ou objeto existente no jogo precisa ser criado do zero e refinado.
+
+Outro fator importante é o desenvolvimento de ferramentas próprias para sistemas antitrapaça, pipelines de implantação, coleta de métricas e análise de dados. A hospedagem dos servidores, o suporte ao cliente, o gerenciamento da comunidade e o marketing representam despesas adicionais que não podem ser ignoradas em um mercado altamente competitivo como o dos MMORPGs.
+
+4. Escolha uma engine de jogo poderosa
+
+Selecione uma engine capaz de oferecer escalabilidade, estabilidade, desempenho, integração com um backend personalizado e facilidade de desenvolvimento para toda a equipe. Em um MMORPG, gráficos extremamente sofisticados ou ferramentas de edição avançadas são menos importantes do que a capacidade da engine de suportar milhares de jogadores simultaneamente.
+
+Para a maioria dos estúdios, uma engine consolidada e bem testada, combinada com um backend desenvolvido especificamente para MMOs, representa a melhor escolha. Empresas com recursos muito elevados podem optar por criar uma engine totalmente própria, mas essa decisão aumenta significativamente o tempo de desenvolvimento, os custos e a complexidade do projeto.
+
+Jogos como World of Warcraft e EVE Online utilizaram engines personalizadas desenvolvidas especificamente para atender às necessidades dos MMORPGs, permitindo um controle muito maior sobre rede, gerenciamento de memória e desempenho.
+
+Atualmente, Unreal Engine e Unity continuam sendo opções viáveis para lidar com renderização, animações e física. Entretanto, ambas exigem modificações profundas para atender às demandas de um MMO.
+
+A Unreal Engine não oferece suporte nativo à escala necessária para milhares de jogadores conectados simultaneamente. Já a Unity apresenta dificuldades ao lidar com grandes concentrações de jogadores e vastos mundos abertos. Em ambos os casos, é necessário desenvolver soluções próprias para redes, persistência de dados, autoridade do servidor e escalabilidade.
+
+5. Integre tecnologias de backend para servidores, rede e bancos de dados
+
+Implemente uma infraestrutura de backend responsável por executar o mundo do jogo, permitir a comunicação entre jogadores e armazenar permanentemente todas as informações necessárias.
+
+Essa infraestrutura é composta por três elementos principais:
+
+Servidores de jogo, responsáveis por executar a lógica do mundo, controlar movimentação, combate, física, zonas e comportamento dos NPCs;
+Camada de rede, encarregada de transmitir todas as informações entre os clientes e o servidor;
+Banco de dados, onde ficam armazenadas contas, personagens, inventários, amizades, itens, progresso e demais informações persistentes dos jogadores.
+
+Em experiências multiplayer, o servidor deve ser a autoridade máxima. O cliente apenas envia solicitações e interpreta as respostas recebidas. Essa arquitetura permite que o servidor controle o surgimento de inimigos, o andamento das missões, a prevenção de trapaças e os resultados dos combates.
+
+A camada de rede funciona como o canal de comunicação entre jogadores e servidores, transmitindo dados como:
+
+Localização dos personagens;
+Habilidades utilizadas;
+Itens consumidos;
+Mensagens de chat;
+Alterações de status.
+
+Já o banco de dados precisa armazenar e atualizar continuamente informações sobre personagens, níveis, moedas, equipamentos, missões, facções e diversos outros elementos do jogo.
+
+Antes de tentar escalar essa infraestrutura para milhares de jogadores, recomenda-se validar cuidadosamente todo o sistema com um pequeno grupo de usuários, garantindo que os componentes funcionem corretamente antes da expansão.
+
+6. Construa um mundo aberto grande e imersivo
+
+Desenvolva um mundo aberto amplo e envolvente para que os jogadores sintam vontade de explorar, evoluir seus personagens, fabricar itens, socializar e interagir com todos os sistemas do jogo. Em um MMORPG, o mundo não serve apenas como cenário para a jogabilidade, como acontece em muitos jogos de ação. Ele é o principal produto oferecido ao jogador. Os usuários esperam viver dentro desse universo fictício, aventurando-se, fazendo amizades, subindo de nível, construindo equipamentos e participando de atividades que façam o mundo parecer vivo. Um mundo grande, rico em detalhes e interessante aumenta o vínculo emocional dos jogadores e incentiva um compromisso de longo prazo com o jogo.
+
+Jogadores de MMORPGs costumam passar milhares de horas explorando o mesmo universo. As diferentes regiões, cidades e pontos de referência devem permanecer relevantes ao longo de diversas expansões, tornando-se locais memoráveis para a comunidade. Mundos abertos funcionam tão bem nesse gênero por dois motivos principais. Primeiro, porque MMORPGs normalmente se passam em universos épicos de fantasia ou ficção científica, que naturalmente favorecem grandes jornadas e exploração contínua. Segundo, porque ambientes muito pequenos fazem os jogadores se concentrarem em poucos locais, transformando o mundo em algo semelhante a um lobby em vez de um ambiente realmente vivo. A escala é essencial para preservar a sensação de imersão que define esse tipo de experiência.
+
+7. Crie personagens, NPCs, criaturas e inimigos
+
+Desenvolva personagens, NPCs, criaturas e inimigos que representem os conflitos centrais do universo do jogo e despertem o interesse dos jogadores. Histórias como a de World of Warcraft dependem de protagonistas, antagonistas e um elenco de personagens secundários capazes de transmitir o tom, os temas e a narrativa do mundo. Jogos de fantasia frequentemente utilizam arquétipos clássicos encontrados em histórias em quadrinhos, desenhos animados e filmes de aventura. Não há problema em recorrer a convenções conhecidas do gênero, desde que elas sejam bem executadas e contribuam para criar um universo divertido de explorar ao lado de outros jogadores.
+
+Os jogadores procuram um MMO para mergulhar em um mundo habitado por personagens interessantes. Cada personagem deve reforçar a luta principal existente entre as facções e transmitir sua personalidade por meio de suas ações, diálogos e aparência. Personagens memoráveis revelam quem são, de onde vieram e quais são seus objetivos durante a interação com o jogador. O mesmo vale para as criaturas. Seu design visual, seus nomes e seus comportamentos devem indicar claramente suas alianças e rivalidades. Um enorme demônio coberto de espinhos e chifres dificilmente transmitirá a imagem de um herói virtuoso, por exemplo.
+
+8. Desenvolva os ciclos principais de jogabilidade e os sistemas de progressão
+
+Crie ciclos de jogabilidade (gameplay loops) e sistemas de progressão capazes de manter o interesse dos jogadores durante centenas ou até milhares de horas. MMORPGs precisam oferecer atividades repetíveis que continuem sendo satisfatórias mesmo após muito tempo de jogo, sem que o equilíbrio entre as diferentes mecânicas seja comprometido. O melhor caminho é começar com sistemas simples, validar rapidamente se eles funcionam e, somente depois, adicionar novas camadas de complexidade. Cada classe deve representar um arquétipo específico de fantasia para o jogador, e cabe aos designers de gameplay construir mecânicas que permitam realizar essa fantasia de maneira consistente.
+
+Construir essa fantasia depende de responder a três perguntas fundamentais: quem é o personagem do jogador, o que ele faz repetidamente durante o jogo e por que continuar realizando essas ações é recompensador. Cada mecânica deve funcionar em harmonia com as demais, formando uma experiência coesa. Em World of Warcraft, combate, progressão, exploração, interação social, gerenciamento de recursos e exploração do mundo estão profundamente conectados. O objetivo é permitir que cada jogador desenvolva um personagem único, capaz de enfrentar os desafios de maneira personalizada. Ao mesmo tempo, o jogo deve apresentar desafios que incentivem a cooperação entre jogadores, fazendo com que diferentes classes e habilidades se complementem durante o conteúdo em grupo.
+
+9. Implemente sistemas sociais e multiplayer
+
+A implementação de sistemas sociais e multiplayer permite que os jogadores interajam de forma significativa, comuniquem-se, cooperem e construam redes de amizades e guildas. A ordem recomendada para desenvolver esses sistemas é começar pela funcionalidade multiplayer, depois adicionar os sistemas de comunicação, criar motivos para os jogadores jogarem juntos — como missões, masmorras, raides e eventos — e, por fim, implementar ferramentas que permitam aos jogadores manter contato entre si. O ponto de partida deve ser um mundo controlado pelo servidor (server-authoritative), capaz de sincronizar a posição e as ações dos personagens, além de gerenciar um grande banco de dados persistente. Em seguida, desenvolva sistemas de visibilidade, como o aparecimento e desaparecimento de personagens conforme a distância, exibição de nomes sobre os jogadores, animações e emotes.
+
+O chat é a função social mais importante de um MMORPG e deve ser implementado logo no início. Comece com um sistema de mensagens em texto contendo apenas os canais essenciais, como conversa local, grupo, guilda e canal da região. Em seguida, adicione recursos como roteamento de mensagens entre membros, bloqueio de usuários, silenciamento e ferramentas de filtragem e pesquisa. Depois disso, concentre-se na jogabilidade em pequenos grupos. Grupos (parties) fazem parte da essência da fantasia dos RPGs, portanto o jogo deve oferecer sistemas de convite e aceitação, compartilhamento de experiência e recompensas, chat exclusivo do grupo e indicadores na interface para facilitar a cooperação. Quando esses recursos estiverem funcionando, introduza desafios que sejam mais fáceis de superar em equipe. À medida que os jogadores começam a colaborar, torna-se importante oferecer listas de amigos para que possam manter contato. Essas amizades evoluem para guildas, e as guildas são um dos principais fatores responsáveis pelo engajamento de longo prazo em um MMORPG.
+
+10. Realize fases de testes Alpha e Beta
+
+Execute fases de testes Alpha e Beta para avaliar a estabilidade, as mecânicas, o balanceamento e o desempenho do jogo sob diferentes níveis de carga. O teste Alpha fechado funciona como uma avaliação interna ou com um pequeno grupo de jogadores externos. Normalmente, entre cinquenta e duzentos e cinquenta participantes são suficientes para validar sistemas, equilíbrio e estabilidade em pequena escala. Essa etapa permite identificar falhas críticas e aperfeiçoar os sistemas antes de disponibilizar o jogo para um público maior. Durante essa fase, o foco deve estar no combate, nas missões, no design do mundo, na progressão dos personagens e nas funcionalidades sociais básicas, pois esses elementos constituem a base de qualquer MMORPG e precisam estar sólidos desde o início do desenvolvimento.
+
+A fase Beta concentra-se em verificar como os sistemas do jogo se comportam sob a pressão de um número muito maior de jogadores, normalmente entre mil e cinco mil participantes, dependendo da escala do projeto. Nesse estágio, conteúdos como zonas completas, masmorras, raides e modos PvP costumam estar implementados, permitindo que a equipe identifique problemas e realize o polimento dessas funcionalidades. Já os testes Beta abertos podem reunir entre dez mil e cinquenta mil jogadores simultaneamente, com o objetivo de realizar testes de estresse em condições próximas às do lançamento oficial. O foco principal é garantir que os servidores suportem grandes quantidades de jogadores conectados ao mesmo tempo e verificar se tecnologias como divisão de servidores (sharding) e regiões de hospedagem funcionam corretamente em um ambiente real.

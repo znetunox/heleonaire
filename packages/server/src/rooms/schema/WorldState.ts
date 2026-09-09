@@ -1,0 +1,296 @@
+import { Schema, MapSchema, type } from "@colyseus/schema";
+
+export class Player extends Schema {
+    // ─────────────────────────────────────────────────────────────
+    // IDENTIDADE
+    // ─────────────────────────────────────────────────────────────
+
+    @type("string")
+    id: string = "";
+
+    @type("string")
+    characterId: string = "";
+
+    @type("string")
+    name: string = "";
+
+    @type("string")
+    class: string = "knight";
+
+    @type("string")
+    jobKey: string = "SWORDMAN";
+
+    @type("string")
+    faction: string = "heleonaire";
+
+    // ─────────────────────────────────────────────────────────────
+    // BASE LEVEL / JOB LEVEL
+    // ─────────────────────────────────────────────────────────────
+
+    @type("number")
+    level: number = 1;
+
+    @type("number")
+    jobLevel: number = 1;
+
+    // ─────────────────────────────────────────────────────────────
+    // EXPERIENCE
+    // ─────────────────────────────────────────────────────────────
+
+    @type("number")
+    baseExp: number = 0;
+
+    /**
+     * EXP necessária para o próximo Base Level.
+     *
+     * É um valor de runtime.
+     * Posteriormente será calculado a partir da tabela
+     * oficial de EXP importada do rAthena.
+     */
+    @type("number")
+    maxBaseExp: number = 100;
+
+    @type("number")
+    jobExp: number = 0;
+
+    /**
+     * Pontos de habilidade disponíveis para aprender/evoluir skills.
+     *
+     * O sistema de skills ainda será implementado.
+     */
+    @type("number")
+    availableSkillPoints: number = 0;
+
+    // ─────────────────────────────────────────────────────────────
+    // HP / MP
+    // ─────────────────────────────────────────────────────────────
+
+    @type("number")
+    hp: number = 100;
+
+    @type("number")
+    maxHp: number = 100;
+
+    @type("number")
+    mp: number = 50;
+
+    @type("number")
+    maxMp: number = 50;
+
+    // ─────────────────────────────────────────────────────────────
+    // POSITION
+    // ─────────────────────────────────────────────────────────────
+
+    @type("number")
+    x: number = 200;
+
+    @type("number")
+    y: number = 200;
+
+    @type("number")
+    targetX: number = 200;
+
+    @type("number")
+    targetY: number = 200;
+
+    @type("string")
+    targetId: string = "";
+
+    // ─────────────────────────────────────────────────────────────
+    // BASE ATTRIBUTES
+    // ─────────────────────────────────────────────────────────────
+
+    @type("number")
+    str: number = 1;
+
+    @type("number")
+    agi: number = 1;
+
+    @type("number")
+    vit: number = 1;
+
+    @type("number")
+    int: number = 1;
+
+    @type("number")
+    dex: number = 1;
+
+    @type("number")
+    luk: number = 1;
+
+    // ─────────────────────────────────────────────────────────────
+    // ATTRIBUTE POINTS
+    // ─────────────────────────────────────────────────────────────
+
+    /**
+     * Pontos de atributo disponíveis para o jogador distribuir.
+     *
+     * NÃO são pontos ganhos automaticamente nos atributos.
+     */
+    @type("number")
+    availablePoints: number = 0;
+
+    // ─────────────────────────────────────────────────────────────
+    // DERIVED COMBAT STATS
+    // ─────────────────────────────────────────────────────────────
+
+    /**
+     * Ataque físico.
+     *
+     * Atualmente calculado pelo StatSystem.
+     * Futuramente também receberá modificadores de:
+     *
+     * Base Stats
+     * + Equipamentos
+     * + Arma
+     * + Buffs/Debuffs
+     * + Classe
+     */
+    @type("number")
+    atk: number = 2;
+
+    /**
+     * Ataque mágico.
+     */
+    @type("number")
+    matk: number = 2;
+
+    /**
+     * Defesa física.
+     */
+    @type("number")
+    def: number = 1;
+
+    /**
+     * Defesa mágica.
+     */
+    @type("number")
+    magicDefense: number = 1;
+
+    /**
+     * Precisão física.
+     */
+    @type("number")
+    hit: number = 101;
+
+    /**
+     * Esquiva física.
+     */
+    @type("number")
+    flee: number = 1;
+
+    /**
+     * Taxa de crítico.
+     */
+    @type("number")
+    crit: number = 0;
+
+    /**
+     * ASPD em milissegundos por ataque.
+     */
+    @type("number")
+    aspd: number = 800;
+}
+
+export class Mob extends Schema {
+    // ─────────────────────────────────────────────────────────────
+    // IDENTIDADE
+    // ─────────────────────────────────────────────────────────────
+
+    @type("string")
+    id: string = "";
+
+    @type("number")
+    mobDbId: number = 1001;
+
+    @type("string")
+    name: string = "Monster";
+
+    // ─────────────────────────────────────────────────────────────
+    // LEVEL
+    // ─────────────────────────────────────────────────────────────
+
+    @type("number")
+    level: number = 1;
+
+    // ─────────────────────────────────────────────────────────────
+    // HP
+    // ─────────────────────────────────────────────────────────────
+
+    @type("number")
+    hp: number = 50;
+
+    @type("number")
+    maxHp: number = 50;
+
+    // ─────────────────────────────────────────────────────────────
+    // POSITION
+    // ─────────────────────────────────────────────────────────────
+
+    @type("number")
+    x: number = 300;
+
+    @type("number")
+    y: number = 300;
+
+    @type("number")
+    targetX: number = 300;
+
+    @type("number")
+    targetY: number = 300;
+
+    @type("string")
+    targetId: string = "";
+
+    // ─────────────────────────────────────────────────────────────
+    // COMBAT
+    // ─────────────────────────────────────────────────────────────
+
+    @type("number")
+    atk: number = 10;
+
+    @type("number")
+    def: number = 2;
+
+    @type("number")
+    exp: number = 50;
+
+    @type("number")
+    jobExp: number = 0;
+
+    // ─────────────────────────────────────────────────────────────
+    // STATE
+    // ─────────────────────────────────────────────────────────────
+
+    @type("boolean")
+    isDead: boolean = false;
+
+    @type("string")
+    spriteKey: string = "skeleton";
+}
+
+export class GroundDrop extends Schema {
+    @type("string") id: string = "";
+
+    @type("number") itemId: number = 0;
+    @type("string") itemName: string = "";
+    @type("number") quantity: number = 1;
+
+    @type("number") x: number = 0;
+    @type("number") y: number = 0;
+
+    @type("string") ownerId: string = "";
+    @type("number") ownershipExpiresAt: number = 0;
+    @type("number") expiresAt: number = 0;
+}
+
+export class WorldState extends Schema {
+    @type({ map: Player })
+    players = new MapSchema<Player>();
+
+    @type({ map: Mob })
+    mobs = new MapSchema<Mob>();
+
+    @type({ map: GroundDrop })
+    drops = new MapSchema<GroundDrop>();
+}

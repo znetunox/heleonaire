@@ -1,0 +1,35 @@
+                    HELEONAIRE
+
+          ┌─────────────────────┐
+          │   Browser / WebGL   │
+          │       Client        │
+          └──────────┬──────────┘
+                     │
+               HTTPS / WS
+                     │
+          ┌──────────▼──────────┐
+          │   Game Server       │
+          │   Node + Colyseus   │
+          │                     │
+          │ Auth                │
+          │ Characters          │
+          │ Combat              │
+          │ Mobs                │
+          │ Inventory           │
+          │ Movement            │
+          └──────────┬──────────┘
+                     │
+                  Prisma
+                     │
+          ┌──────────▼──────────┐
+          │      Supabase      │
+          │     PostgreSQL     │
+          │                     │
+          │ Accounts            │
+          │ Characters          │
+          │ Items               │
+          │ Inventory           │
+          │ Progress            │
+          │ Quests              │
+          │ etc.                │
+          └─────────────────────┘

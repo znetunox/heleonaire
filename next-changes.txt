@@ -1,0 +1,188 @@
+HELEONAIRE — AUDITORIA INICIAL
+
+IMPORTANTE:
+NÃO implemente nada.
+NÃO altere nenhum arquivo.
+NÃO crie arquivos.
+NÃO execute comandos que modifiquem o projeto.
+
+O objetivo desta tarefa é somente descobrir o estado atual do código.
+
+O projeto JÁ ESTÁ EM DESENVOLVIMENTO.
+Não recrie sistemas existentes.
+Não assuma que algo está ausente apenas porque aparece como "NEW" no roadmap.
+
+==================================================
+REGRA PRINCIPAL — CONTROLE DE CONTEXTO
+==================================================
+
+Esta auditoria deve ser PEQUENA e DIRECIONADA.
+
+NÃO faça uma varredura completa do projeto.
+
+NÃO investigue todas as áreas abaixo nesta execução.
+
+Nesta primeira execução, investigue SOMENTE:
+
+DATABASE + SKILLS
+
+Ignore completamente:
+
+- Level / XP / atributos
+- Items
+- Monsters
+- Drops
+- Target
+- Maps
+- Combat
+- HUD
+- Inventory
+
+Não leia arquivos desses sistemas, exceto se forem uma dependência
+direta e indispensável para entender Skills.
+
+==================================================
+OBJETIVO
+==================================================
+
+Descobrir como o sistema de Skills funciona atualmente.
+
+Investigue somente o caminho:
+
+DATABASE / DATA SOURCE
+        ↓
+SERVER
+        ↓
+API / WEBSOCKET
+        ↓
+CLIENT
+        ↓
+SKILLS PAGE
+
+==================================================
+PASSO 1 — DATABASE
+==================================================
+
+Descubra:
+
+- qual banco está sendo utilizado;
+- se existe Prisma;
+- localização do schema;
+- se existe model relacionado a Skills;
+- como os dados de Skills são armazenados.
+
+Se Skills não estiverem no banco, descubra qual é a fonte atual
+somente se isso for necessário para entender a página de Skills.
+
+Não migre dados.
+Não altere schema.
+Não altere banco.
+
+==================================================
+PASSO 2 — SERVER
+==================================================
+
+Encontre somente o código diretamente responsável por:
+
+- carregar Skills;
+- fornecer Skills;
+- transformar dados de Skills;
+- disponibilizar Skills para o client.
+
+Não investigue o sistema completo do servidor.
+
+==================================================
+PASSO 3 — API / WEBSOCKET
+==================================================
+
+Descubra como o client recebe Skills.
+
+Verifique somente:
+
+- endpoint relevante;
+- handler relevante;
+- mensagem WebSocket relevante, se existir;
+- formato da resposta.
+
+Não altere nenhum protocolo.
+
+==================================================
+PASSO 4 — CLIENT
+==================================================
+
+Encontre:
+
+- página/componente de Skills;
+- chamada para obter Skills;
+- estado utilizado pela página;
+- renderização da lista.
+
+Investigue somente o necessário para descobrir por que Skills
+podem não estar sendo exibidas.
+
+==================================================
+LIMITE DE INVESTIGAÇÃO
+==================================================
+
+Tente limitar a investigação a aproximadamente 3–8 arquivos relevantes.
+
+Não leia arquivos completos quando apenas uma parte for necessária.
+
+Não siga referências não relacionadas.
+
+Não faça exploração recursiva.
+
+Quando já houver informação suficiente para determinar o fluxo,
+PARE.
+
+NÃO continue procurando informações adicionais.
+
+==================================================
+RESPOSTA
+==================================================
+
+Sua resposta deve ter NO MÁXIMO 1200 tokens.
+
+Retorne EXATAMENTE neste formato:
+
+## DATABASE
+
+Banco:
+Prisma:
+Fonte das Skills:
+
+## SKILLS FLOW
+
+Database/Data Source:
+Server:
+API/WebSocket:
+Client:
+
+## CURRENT STATUS
+
+Status atual:
+Problema encontrado:
+
+## RELEVANT FILES
+
+- arquivo — motivo
+- arquivo — motivo
+
+## NEXT STEP
+
+Indique somente o próximo bloco recomendado.
+
+==================================================
+REGRAS FINAIS
+==================================================
+
+NÃO implemente.
+NÃO corrija.
+NÃO refatore.
+NÃO crie arquivos.
+NÃO altere arquivos.
+NÃO faça auditoria de outros sistemas.
+
+Depois de produzir a resposta acima, PARE.
+
+NÃO continue automaticamente.
