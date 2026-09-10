@@ -1107,17 +1107,9 @@ export class WorldRoom extends Room<WorldState> {
         const modifiers = {
             ...statusModifiers,
 
-            atk:
-                (statusModifiers.atk ?? 0) +
-                equipmentModifiers.atk,
-
-            matk:
-                (statusModifiers.matk ?? 0) +
-                equipmentModifiers.matk,
-
             defense:
                 (statusModifiers.defense ?? 0) +
-                equipmentModifiers.defense,
+                equipmentModifiers.armorDef,
         };
 
         const derived =

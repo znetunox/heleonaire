@@ -22,6 +22,10 @@ export interface DerivedStats {
     maxMp: number;
 
     atk: number;
+    batk: number;
+    statusAtk: number;
+    patk: number;
+
     matk: number;
 
     def1: number;
@@ -505,6 +509,17 @@ export class StatSystem {
                 ),
             );
 
+        const batk =
+            effectiveStats.str +
+            Math.floor(effectiveStats.dex / 5) +
+            Math.floor(effectiveStats.luk / 3) +
+            Math.floor(level / 4) +
+            (modifiers.atk ?? 0);
+
+        const statusAtk = batk * 2;
+
+        const patk = 0;
+
         return {
             maxHp,
             maxMp,
@@ -513,6 +528,12 @@ export class StatSystem {
                 effectiveStats.str * 2 +
                 Math.floor(effectiveStats.dex / 5) +
                 (modifiers.atk ?? 0),
+
+            batk,
+
+            statusAtk,
+
+            patk,
 
             matk:
                 effectiveStats.int * 2 +

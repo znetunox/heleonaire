@@ -404,6 +404,7 @@ export class EquipmentService {
                 inventoryId: true,
                 item: {
                     select: {
+                        type: true,
                         attack: true,
                         magicAttack: true,
                         defense: true,
@@ -415,6 +416,7 @@ export class EquipmentService {
         const equippedInstances = new Map<
             string,
             {
+                type: string;
                 attack: number | null;
                 magicAttack: number | null;
                 defense: number | null;
@@ -434,28 +436,60 @@ export class EquipmentService {
             }
         }
 
-        let atk = 0;
-        let matk = 0;
-        let defense = 0;
+        let weaponAtk = 0;
+        let equipAtk = 0;
+        let equipMatk = 0;
+        let armorDef = 0;
+        let ammoAtk = 0;
 
         for (const item of equippedInstances.values()) {
+            if (item.type === "Weapon") {
+                if (item.attack !== null) {
+                    weaponAtk += item.attack;
+                }
+
+                if (item.magicAttack !== null) {
+                    equipMatk += item.magicAttack;
+                }
+
+                continue;
+            }
+
+            if (item.type === "Ammo") {
+                if (item.attack !== null) {
+                    ammoAtk += item.attack;
+                }
+
+                continue;
+            }
+
+            if (item.type === "Armor") {
+                if (item.defense !== null) {
+                    armorDef += item.defense;
+                }
+
+                continue;
+            }
+
             if (item.attack !== null) {
-                atk += item.attack;
+                equipAtk += item.attack;
             }
 
             if (item.magicAttack !== null) {
-                matk += item.magicAttack;
+                equipMatk += item.magicAttack;
             }
 
             if (item.defense !== null) {
-                defense += item.defense;
+                armorDef += item.defense;
             }
         }
 
         return {
-            atk,
-            matk,
-            defense,
+            weaponAtk,
+            equipAtk,
+            equipMatk,
+            armorDef,
+            ammoAtk,
         };
     }
 
