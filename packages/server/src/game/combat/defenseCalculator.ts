@@ -49,8 +49,6 @@ export function calculateDefenseReduction(
             (4000 + def1) /
             (4000 + 10 * def1) -
             def2;
-    } else {
-        effectiveDef -= def2;
     }
 
     return {

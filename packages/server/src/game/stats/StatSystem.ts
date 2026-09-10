@@ -513,8 +513,7 @@ export class StatSystem {
             effectiveStats.str +
             Math.floor(effectiveStats.dex / 5) +
             Math.floor(effectiveStats.luk / 3) +
-            Math.floor(level / 4) +
-            (modifiers.atk ?? 0);
+            Math.floor(level / 4);
 
         const statusAtk = batk * 2;
 
