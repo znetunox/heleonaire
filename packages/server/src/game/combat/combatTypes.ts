@@ -18,6 +18,7 @@ export interface CombatStats {
 
     def1: number;
     def2: number;
+    res: number;
 
     mdef1: number;
     mdef2: number;
@@ -82,6 +83,30 @@ export interface PlayerCombatSnapshot {
      */
     ammoAtk: number;
 
+    /**
+     * Renewal bAtkRate.
+     *
+     * Applied to (weaponAtk + equipAtk) during the
+     * basic physical attack composition.
+     */
+    atkRate: number;
+
+    /**
+     * Renewal bWeaponAtkRate.
+     *
+     * Applied to the base weapon ATK before refine ATK
+     * is added.
+     */
+    weaponAtkRate: number;
+
+    /**
+     * Provisional generic weapon damage rate.
+     *
+     * The faithful rAthena representation will eventually
+     * be indexed by weapon type.
+     */
+    weaponDamageRate: number;
+
     weapon: WeaponSnapshot | null;
     ammo: AmmoSnapshot | null;
 }
@@ -112,7 +137,6 @@ export interface AttackComponents {
     statusAtk: number;
     weaponAtk: number;
     equipAtk: number;
-    percentAtk: number;
     masteryAtk: number;
 
     patk: number;
@@ -153,6 +177,28 @@ export interface DefenseContext {
 
     mdef1: number;
     mdef2: number;
+
+    /**
+     * Final skill ratio used by the physical DEF calculation.
+     */
+    skillRatio: number;
+
+    /**
+     * Whether the attack uses DEF piercing.
+     */
+    isDefPiercing: boolean;
+
+    /**
+     * Whether DEF1 should be ignored by the attack.
+     */
+    ignoreDef: boolean;
+}
+
+export interface ResistanceResult {
+    resistance: number;
+    effectiveResistance: number;
+    damageBeforeResistance: number;
+    damageAfterResistance: number;
 }
 
 export interface DefenseResult {
@@ -178,8 +224,10 @@ export interface DamageResult {
 
     components: AttackComponents;
 
+    resistance: ResistanceResult;
     defense: DefenseResult;
 
     preDefenseDamage: number;
+    postResistanceDamage: number;
     postDefenseDamage: number;
 }

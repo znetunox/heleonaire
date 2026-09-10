@@ -19,8 +19,9 @@ interface RawMobEntry {
   Attack?: number;
   Attack2?: number;
 
-  Defense?: number;
-  MagicDefense?: number;
+    Defense?: number;
+    Resistance?: number;
+    MagicDefense?: number;
 
   Str?: number;
   Agi?: number;
@@ -148,6 +149,7 @@ function parseRawMob(raw: RawMobEntry): ParsedMob {
     attack2: toNumber(raw.Attack2),
 
     defense: toNumber(raw.Defense),
+    resistance: toNumber(raw.Resistance),
     magicDefense: toNumber(raw.MagicDefense),
 
     str: toNumber(raw.Str),

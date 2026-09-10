@@ -6,6 +6,10 @@ import {
     calculateDefenseReduction,
 } from "./defenseCalculator";
 
+import {
+    calculateResistanceReduction,
+} from "./resistanceCalculator";
+
 import type {
     AttackContext,
     DamageResult,
@@ -21,14 +25,26 @@ export class CombatSystem {
             calculateAttackComposition(
                 context.components,
                 context.attacker.combatStats.patk,
+                context.attacker.atkRate,
                 context.skillRatio,
                 context.skillConstant,
             );
 
+        const resistance =
+            calculateResistanceReduction(
+                attack.finalDamage,
+                context.target.stats.res,
+            );
+
         const defense =
             calculateDefenseReduction(
-                attack.finalDamage,
+                resistance.damageAfterResistance,
                 context.target.stats,
+                {
+                    skillRatio: context.skillRatio,
+                    isDefPiercing: false,
+                    ignoreDef: false,
+                },
             );
 
         const damage =
@@ -50,10 +66,15 @@ export class CombatSystem {
             components:
                 context.components,
 
+            resistance,
+
             defense,
 
             preDefenseDamage:
                 attack.finalDamage,
+
+            postResistanceDamage:
+                resistance.damageAfterResistance,
 
             postDefenseDamage:
                 damage,

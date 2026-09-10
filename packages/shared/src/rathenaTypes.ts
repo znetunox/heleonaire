@@ -11,10 +11,11 @@ export interface RathenaMob {
   sp: number;
   baseExp: number;
   jobExp: number;
-  attack: number;
-  attack2: number;
-  defense: number;
-  magicDefense: number;
+    attack: number;
+    attack2: number;
+    defense: number;
+    resistance: number;
+    magicDefense: number;
   str: number;
   agi: number;
   vit: number;

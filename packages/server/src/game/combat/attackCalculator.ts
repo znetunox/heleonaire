@@ -14,59 +14,50 @@ export interface AttackCompositionResult {
 export function calculateAttackComposition(
     components: AttackComponents,
     patk: number,
+    atkRate: number,
     skillRatio: number,
     skillConstant: number,
 ): AttackCompositionResult {
     /*
-     * Renewal physical attack scaffold.
+     * Renewal:
      *
-     * Base attack components:
+     * percentAtk =
+     *     (weaponAtk + equipAtk) * atk_rate / 100
      *
-     *   statusAtk
-     * + weaponAtk
-     * + equipAtk
-     * + percentAtk
-     *
-     * Ammo is intentionally NOT added here independently.
-     * When applicable, ammo attack belongs to the equipAtk side
-     * of the rAthena weapon/equipment calculation.
+     * The percentage ATK does NOT include statusAtk.
      */
+    const percentAtk =
+        Math.floor(
+            (
+                components.weaponAtk +
+                components.equipAtk
+            ) *
+            atkRate /
+            100,
+        );
+
     const baseDamage =
         components.statusAtk +
         components.weaponAtk +
         components.equipAtk +
-        components.percentAtk;
+        percentAtk;
 
-    /*
-     * Renewal P.ATK modifier.
-     */
     const postPatkDamage =
         Math.floor(
             baseDamage *
-                (100 + patk) /
-                100,
+            (100 + patk) /
+            100,
         );
 
-    /*
-     * Mastery ATK is kept separate from the P.ATK multiplication.
-     */
     const masteryDamage =
         postPatkDamage +
         components.masteryAtk;
 
-    /*
-     * Skill ratio/constant are applied after the basic
-     * physical attack composition.
-     *
-     * For a normal attack:
-     *   skillRatio = 100
-     *   skillConstant = 0
-     */
     const skillDamage =
         Math.floor(
             masteryDamage *
-                skillRatio /
-                100,
+            skillRatio /
+            100,
         ) +
         skillConstant;
 
