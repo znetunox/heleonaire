@@ -379,6 +379,170 @@ export class EquipmentService {
     }
 
     /**
+     * Obtém o contexto da arma física atualmente equipada.
+     *
+     * A instância do equipamento é identificada por inventoryId.
+     * O refineLevel autoritativo vem de Inventory.
+     *
+     * CharacterEquipment.refineLevel é utilizado somente como
+     * fallback para equipamentos legados sem inventoryId.
+     */
+    async getWeaponContext(characterId: string) {
+        if (!characterId) {
+            throw new Error("Character ID is required");
+        }
+
+        const equipment = await prisma.characterEquipment.findMany({
+            where: {
+                characterId,
+                slot: {
+                    in: [
+                        "Both_Hand",
+                        "Right_Hand",
+                    ],
+                },
+            },
+            select: {
+                itemId: true,
+                slot: true,
+                inventoryId: true,
+                refineLevel: true,
+                item: {
+                    select: {
+                        id: true,
+                        aegisName: true,
+                        name: true,
+                        type: true,
+                        subType: true,
+                        attack: true,
+                        weaponLevel: true,
+                        range: true,
+                    },
+                },
+            },
+        });
+
+        const weaponEquipment =
+            equipment.find(
+                (entry) =>
+                    entry.slot === "Both_Hand" &&
+                    entry.item.type === "Weapon",
+            ) ??
+            equipment.find(
+                (entry) =>
+                    entry.slot === "Right_Hand" &&
+                    entry.item.type === "Weapon",
+            );
+
+        if (!weaponEquipment) {
+            return null;
+        }
+
+        if (weaponEquipment.item.attack === null) {
+            throw new Error(
+                `Weapon ${weaponEquipment.item.aegisName} has no attack value`,
+            );
+        }
+
+        if (weaponEquipment.item.weaponLevel === null) {
+            throw new Error(
+                `Weapon ${weaponEquipment.item.aegisName} has no weapon level`,
+            );
+        }
+
+        let refineLevel =
+            weaponEquipment.refineLevel;
+
+        if (weaponEquipment.inventoryId) {
+            const inventory =
+                await prisma.inventory.findUnique({
+                    where: {
+                        id: weaponEquipment.inventoryId,
+                    },
+                    select: {
+                        id: true,
+                        itemId: true,
+                        refineLevel: true,
+                    },
+                });
+
+            if (!inventory) {
+                throw new Error(
+                    `Weapon inventory instance ${weaponEquipment.inventoryId} not found`,
+                );
+            }
+
+            if (inventory.itemId !== weaponEquipment.itemId) {
+                throw new Error(
+                    `Weapon inventory instance ${inventory.id} does not match equipped item ${weaponEquipment.itemId}`,
+                );
+            }
+
+            refineLevel =
+                inventory.refineLevel;
+        }
+
+        if (refineLevel < 0) {
+            throw new Error(
+                `Invalid weapon refine level: ${refineLevel}`,
+            );
+        }
+
+        let refineBonus = 0;
+        let overRefineBonus = 0;
+
+        if (refineLevel > 0) {
+            const refineRule =
+                await prisma.refineRule.findUnique({
+                    where: {
+                        group_itemLevel_refineLevel: {
+                            group: "Weapon",
+                            itemLevel:
+                                weaponEquipment.item.weaponLevel,
+                            refineLevel,
+                        },
+                    },
+                    select: {
+                        bonus: true,
+                        randomBonus: true,
+                    },
+                });
+
+            if (!refineRule) {
+                throw new Error(
+                    `Refine rule not found for Weapon level ${weaponEquipment.item.weaponLevel} refine +${refineLevel}`,
+                );
+            }
+
+            refineBonus =
+                refineRule.bonus / 100;
+
+            overRefineBonus =
+                refineRule.randomBonus / 100;
+        }
+
+        return {
+            itemId: weaponEquipment.item.id,
+            aegisName: weaponEquipment.item.aegisName,
+            name: weaponEquipment.item.name,
+            slot: weaponEquipment.slot,
+            inventoryId:
+                weaponEquipment.inventoryId,
+            attack:
+                weaponEquipment.item.attack,
+            weaponLevel:
+                weaponEquipment.item.weaponLevel,
+            weaponType:
+                weaponEquipment.item.subType ?? "",
+            range:
+                weaponEquipment.item.range ?? 0,
+            refineLevel,
+            refineBonus,
+            overRefineBonus,
+        };
+    }
+
+    /**
  * Calcula os modificadores numéricos fornecidos pelo
  * equipamento atualmente equipado.
  *

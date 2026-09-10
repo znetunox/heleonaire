@@ -11,35 +11,35 @@ export interface WeaponAttackResult {
     variance: number;
     baseStatBonus: number;
     baseStat: number;
+
+    overRefineDamage: number;
 }
 
 export function calculateWeaponAttack(
     attacker: CombatStats,
     weapon: WeaponContext,
     randomValue = 0.5,
+    overRefineRandomValue = 0.5,
 ): WeaponAttackResult {
-    const attack =
+    const baseAttack =
         Math.max(0, weapon.attack);
 
     const weaponLevel =
         Math.max(0, weapon.weaponLevel);
 
-    /*
-     * Renewal rAthena:
-     *
-     * variance =
-     *     5% × weapon attack × weapon level
-     */
+    const refineBonus =
+        Math.max(0, weapon.refineBonus);
+
+    const weaponAtk =
+        baseAttack +
+        refineBonus;
+
     const variance =
         5.0 *
-        attack *
+        baseAttack *
         weaponLevel /
         100.0;
 
-    /*
-     * Ranged weapon families use DEX.
-     * Melee weapons use STR.
-     */
     const usesDex =
         weapon.range > 3;
 
@@ -48,13 +48,8 @@ export function calculateWeaponAttack(
             ? attacker.dex
             : attacker.str;
 
-    /*
-     * Renewal weapon base-stat bonus:
-     *
-     * weapon attack × base stat / 200
-     */
     const baseStatBonus =
-        attack *
+        baseAttack *
         baseStat /
         200.0;
 
@@ -62,7 +57,7 @@ export function calculateWeaponAttack(
         Math.max(
             0,
             Math.floor(
-                attack -
+                weaponAtk -
                 variance +
                 baseStatBonus,
             ),
@@ -72,7 +67,7 @@ export function calculateWeaponAttack(
         Math.min(
             65535,
             Math.floor(
-                attack +
+                weaponAtk +
                 variance +
                 baseStatBonus,
             ),
@@ -91,6 +86,30 @@ export function calculateWeaponAttack(
             normalizedRandom,
         );
 
+    const overRefineBonus =
+        Math.max(
+            0,
+            Math.floor(weapon.overRefineBonus),
+        );
+
+    const normalizedOverRefineRandom =
+        Math.min(
+            0.999999999,
+            Math.max(
+                0,
+                overRefineRandomValue,
+            ),
+        );
+
+    const overRefineDamage =
+        overRefineBonus > 0
+            ? 1 +
+            Math.floor(
+                overRefineBonus *
+                normalizedOverRefineRandom,
+            )
+            : 0;
+
     return {
         min,
         max,
@@ -98,5 +117,6 @@ export function calculateWeaponAttack(
         variance,
         baseStatBonus,
         baseStat,
+        overRefineDamage,
     };
 }

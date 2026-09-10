@@ -41,9 +41,10 @@ export interface WeaponContext {
     weaponType: string;
     range: number;
     refineLevel: number;
+    refineBonus: number;
+    overRefineBonus: number;
     element?: number;
 }
-
 export interface AttackContext {
     attacker: CombatStats;
     target: CombatStats;
