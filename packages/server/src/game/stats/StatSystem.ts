@@ -555,15 +555,22 @@ export class StatSystem {
                 modifiers.magicDefense ?? 0,
 
             mdef2:
-                effectiveStats.int,
+                effectiveStats.int +
+                Math.floor(level / 4) +
+                Math.floor((effectiveStats.dex + effectiveStats.vit) / 5),
 
             hit:
-                100 +
+                175 +
+                level +
                 effectiveStats.dex +
+                Math.floor(effectiveStats.luk / 3) +
                 (modifiers.hit ?? 0),
 
             flee:
+                100 +
+                level +
                 effectiveStats.agi +
+                Math.floor(effectiveStats.luk / 5) +
                 (modifiers.flee ?? 0),
 
             crit:
@@ -573,3 +580,5 @@ export class StatSystem {
     }
 
 }
+
+

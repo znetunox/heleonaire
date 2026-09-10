@@ -12,13 +12,15 @@ import type {
 } from "./combatTypes";
 
 export class CombatSystem {
+
     performWeaponAttack(
         context: AttackContext,
     ): DamageResult {
+
         const attack =
             calculateAttackComposition(
                 context.components,
-                context.attacker.patk,
+                context.attacker.combatStats.patk,
                 context.skillRatio,
                 context.skillConstant,
             );
@@ -26,7 +28,7 @@ export class CombatSystem {
         const defense =
             calculateDefenseReduction(
                 attack.finalDamage,
-                context.target,
+                context.target.stats,
             );
 
         const damage =
@@ -58,3 +60,6 @@ export class CombatSystem {
         };
     }
 }
+
+export const combatSystem =
+    new CombatSystem();

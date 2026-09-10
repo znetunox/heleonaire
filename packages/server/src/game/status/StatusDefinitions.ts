@@ -22,7 +22,10 @@ export type StatusStatModifier =
         type: "PERCENT";
         stat:
         | "maxHp"
-        | "maxMp";
+        | "maxMp"
+        | "atkRate"
+        | "weaponAtkRate"
+        | "weaponDamageRate";
     };
 
 export interface StatusDefinition {

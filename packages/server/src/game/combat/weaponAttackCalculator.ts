@@ -40,8 +40,21 @@ export function calculateWeaponAttack(
         weaponLevel /
         100.0;
 
+    const dexWeaponTypes = new Set([
+        "Bow",
+        "Musical",
+        "Whip",
+        "Revolver",
+        "Rifle",
+        "Gatling",
+        "Shotgun",
+        "Grenade",
+    ]);
+
     const usesDex =
-        weapon.range > 3;
+        dexWeaponTypes.has(
+            weapon.weaponType,
+        );
 
     const baseStat =
         usesDex

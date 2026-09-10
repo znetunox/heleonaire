@@ -25,7 +25,10 @@ export type StatusStatKey =
 
 export type StatusPercentKey =
     | "maxHpPercent"
-    | "maxMpPercent";
+    | "maxMpPercent"
+    | "atkRate"
+    | "weaponAtkRate"
+    | "weaponDamageRate";
 
 export type StatusStatModifiers =
     Partial<Record<StatusStatKey, number>>
@@ -191,10 +194,29 @@ export class StatusService {
                 }
 
                 if (modifier.type === "PERCENT") {
-                    const key: StatusPercentKey =
-                        modifier.stat === "maxHp"
-                            ? "maxHpPercent"
-                            : "maxMpPercent";
+                    let key: StatusPercentKey;
+
+                    switch (modifier.stat) {
+                        case "maxHp":
+                            key = "maxHpPercent";
+                            break;
+
+                        case "maxMp":
+                            key = "maxMpPercent";
+                            break;
+
+                        case "atkRate":
+                            key = "atkRate";
+                            break;
+
+                        case "weaponAtkRate":
+                            key = "weaponAtkRate";
+                            break;
+
+                        case "weaponDamageRate":
+                            key = "weaponDamageRate";
+                            break;
+                    }
 
                     const current =
                         modifiers[key] ?? 0;
