@@ -19,8 +19,13 @@ import {
 
 import type {
     CombatStats,
+    MobCombatSnapshot,
     PlayerCombatSnapshot,
 } from "./combatTypes";
+
+import type {
+    GameMobData,
+} from "../../services/GameDataService";
 
 export interface CombatCharacterInput {
     id: string;
@@ -68,6 +73,8 @@ export class CombatStateBuilder {
             this.statuses.getStatModifiers(
                 character.id,
             );
+
+
 
         /*
          * ---------------------------------------------------------
@@ -275,6 +282,144 @@ export class CombatStateBuilder {
 
             ammo:
                 null,
+        };
+    }
+
+    buildMobSnapshot(
+        mob: GameMobData,
+    ): MobCombatSnapshot {
+
+        /*
+         * ---------------------------------------------------------
+         * Renewal mob derived combat stats
+         * ---------------------------------------------------------
+         *
+         * Mobs do not use the same HIT/FLEE/DEF2/MDEF2 formulas
+         * as player characters.
+         *
+         * Renewal:
+         *
+         *   HIT  = 150 + Level + DEX
+         *   FLEE = 100 + Level + AGI
+         *   DEF2 = floor((Level + VIT) / 2)
+         *   MDEF2 = floor((INT + Level) / 4)
+         *
+         * LUK does not participate in the generic mob HIT/FLEE
+         * formulas.
+         */
+
+        const def2 =
+            Math.floor(
+                (mob.level + mob.vit) / 2,
+            );
+
+        const mdef2 =
+            Math.floor(
+                (mob.int + mob.level) / 4,
+            );
+
+        const hit =
+            150 +
+            mob.level +
+            mob.dex;
+
+        const flee =
+            100 +
+            mob.level +
+            mob.agi;
+
+        const combatStats: CombatStats = {
+            level:
+                mob.level,
+
+            str:
+                mob.str,
+
+            agi:
+                mob.agi,
+
+            vit:
+                mob.vit,
+
+            int:
+                mob.int,
+
+            dex:
+                mob.dex,
+
+            luk:
+                mob.luk,
+
+            /*
+             * These attack-side fields are not required when the mob
+             * is currently being used as the target of a player attack.
+             *
+             * They will be populated when the mob -> player combat
+             * pipeline is implemented.
+             */
+            batk: 0,
+            statusAtk: 0,
+            patk: 0,
+
+            /*
+             * Renewal mob DB values:
+             *
+             * defense     -> hard DEF / DEF1
+             * resistance  -> RES
+             */
+            def1:
+                mob.defense,
+
+            def2,
+
+            res:
+                mob.resistance,
+
+            mdef1:
+                mob.magicDefense,
+
+            mdef2,
+
+            hit,
+
+            flee,
+
+            crit: 0,
+        };
+
+        return {
+            mobDbId:
+                mob.id,
+
+            aegisName:
+                mob.aegisName,
+
+            name:
+                mob.name,
+
+            stats:
+                combatStats,
+
+            attack:
+                mob.attack,
+
+            attack2:
+                mob.attack2,
+
+            attackRange:
+                mob.attackRange,
+
+            size:
+                mob.size,
+
+            race:
+                mob.race,
+
+            element:
+                mob.element,
+
+            elementLevel:
+                mob.elementLevel,
         };
     }
 

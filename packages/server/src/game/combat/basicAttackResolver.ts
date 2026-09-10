@@ -7,7 +7,10 @@ import {
     calculateWeaponAttack,
 } from "./weaponAttackCalculator";
 
+import { gameDataService } from "../../services/GameDataService";
+
 export interface BasicAttackOptions {
+    targetSize?: string;
     randomValue?: number;
     overRefineRandomValue?: number;
 }
@@ -16,14 +19,36 @@ export function resolveBasicAttackComponents(
     attacker: PlayerCombatSnapshot,
     options: BasicAttackOptions = {},
 ): AttackComponents {
+    const sizeFixRate =
+        attacker.weapon !== null
+            ? (() => {
+                const sizeFix = gameDataService.getSizeFix(
+                    attacker.weapon.weaponType,
+                );
+
+                switch (options.targetSize) {
+                    case "Small":
+                        return sizeFix.small;
+
+                    case "Large":
+                        return sizeFix.large;
+
+                    case "Medium":
+                    default:
+                        return sizeFix.medium;
+                }
+            })()
+            : 100;
+
     const weaponAttack =
         attacker.weapon !== null
             ? calculateWeaponAttack(
                 attacker.combatStats,
                 attacker.weapon,
-                attacker.weaponAtkRate,
                 options.randomValue ?? 0.5,
                 options.overRefineRandomValue ?? 0.5,
+                attacker.weaponDamageRate,
+                sizeFixRate,
             ).value
             : 0;
 

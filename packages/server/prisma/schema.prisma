@@ -87,6 +87,22 @@ model Character {
 }
 
 // ============================================================
+// SIZE FIX RULES
+// ============================================================
+
+model SizeFixRule {
+    id         Int      @id @default(autoincrement())
+    weaponType String   @unique
+    small      Int      @default(100)
+    medium     Int      @default(100)
+    large      Int      @default(100)
+    source     String   @default("rathena")
+    sourceHash String?
+    createdAt  DateTime @default(now())
+    updatedAt  DateTime @updatedAt
+}
+
+// ============================================================
 // INVENTORY
 // ============================================================
 
@@ -309,6 +325,7 @@ model Mob {
   attack2 Int @default(0)
 
   defense      Int @default(0)
+  resistance   Int @default(0)
   magicDefense Int @default(0)
 
   str Int @default(1)

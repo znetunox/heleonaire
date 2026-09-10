@@ -39,8 +39,9 @@ async function importMob(mob: ParsedMob): Promise<void> {
       attack: mob.attack,
       attack2: mob.attack2,
 
-      defense: mob.defense,
-      magicDefense: mob.magicDefense,
+        defense: mob.defense,
+        resistance: mob.resistance,
+        magicDefense: mob.magicDefense,
 
       str: mob.str,
       agi: mob.agi,
@@ -84,8 +85,9 @@ async function importMob(mob: ParsedMob): Promise<void> {
       attack: mob.attack,
       attack2: mob.attack2,
 
-      defense: mob.defense,
-      magicDefense: mob.magicDefense,
+        defense: mob.defense,
+        resistance: mob.resistance,
+        magicDefense: mob.magicDefense,
 
       str: mob.str,
       agi: mob.agi,

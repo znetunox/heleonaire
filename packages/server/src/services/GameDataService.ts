@@ -8,13 +8,13 @@ export interface GameMobData {
     level: number;
     hp: number;
 
-    attack: number;
-    defense: number;
-
     baseExp: number;
     jobExp: number;
 
+    attack: number;
     attack2: number;
+    defense: number;
+    resistance: number;
     magicDefense: number;
 
     str: number;
@@ -105,10 +105,18 @@ export interface GameDropData {
     sourceKey: string | null;
 }
 
+export interface GameSizeFixData {
+    weaponType: string;
+    small: number;
+    medium: number;
+    large: number;
+}
+
 class GameDataService {
     private mobs = new Map<number, GameMobData>();
     private items = new Map<number, GameItemData>();
     private drops = new Map<number, GameDropData[]>();
+    private sizeFixRules = new Map<string, GameSizeFixData>();
 
     private initialized = false;
     private initializationPromise: Promise<void> | null = null;
@@ -135,15 +143,17 @@ class GameDataService {
     private async load(): Promise<void> {
         console.log("[GameDataService] Loading game data...");
 
-        const [mobRows, itemRows, dropRows] = await Promise.all([
+        const [mobRows, itemRows, dropRows, sizeFixRows] = await Promise.all([
             prisma.mob.findMany(),
             prisma.item.findMany(),
             prisma.dropEntry.findMany(),
+            prisma.sizeFixRule.findMany(),
         ]);
 
         this.mobs.clear();
         this.items.clear();
         this.drops.clear();
+        this.sizeFixRules.clear();
 
         for (const mob of mobRows) {
             const data: GameMobData = {
@@ -154,13 +164,13 @@ class GameDataService {
                 level: mob.level,
                 hp: mob.hp,
 
-                attack: mob.attack,
-                defense: mob.defense,
-
                 baseExp: mob.baseExp,
                 jobExp: mob.jobExp,
 
+                attack: mob.attack,
                 attack2: mob.attack2,
+                defense: mob.defense,
+                resistance: mob.resistance,
                 magicDefense: mob.magicDefense,
 
                 str: mob.str,
@@ -268,10 +278,25 @@ class GameDataService {
             }
         }
 
+        for (const rule of sizeFixRows) {
+            const data: GameSizeFixData = {
+                weaponType: rule.weaponType,
+                small: rule.small,
+                medium: rule.medium,
+                large: rule.large,
+            };
+
+            this.sizeFixRules.set(
+                data.weaponType,
+                data
+            );
+        }
+
         console.log(
             `[GameDataService] Loaded ${this.mobs.size} mobs, ` +
-            `${this.items.size} items and ` +
-            `${dropRows.length} drops.`
+            `${this.items.size} items, ` +
+            `${dropRows.length} drops and ` +
+            `${this.sizeFixRules.size} Size Fix rules.`
         );
     }
 
@@ -325,6 +350,25 @@ class GameDataService {
         }
 
         return count;
+    }
+
+    // ============================================================
+    // SIZE FIX
+    // ============================================================
+
+    getSizeFix(weaponType: string): GameSizeFixData {
+        return (
+            this.sizeFixRules.get(weaponType) ?? {
+                weaponType,
+                small: 100,
+                medium: 100,
+                large: 100,
+            }
+        );
+    }
+
+    getSizeFixCount(): number {
+        return this.sizeFixRules.size;
     }
 
     // ============================================================

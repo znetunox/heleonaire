@@ -22,11 +22,36 @@ export function calculateWeaponAttack(
     weaponAtkRate = 0,
     randomValue = 0.5,
     overRefineRandomValue = 0.5,
+    weaponDamageRate = 0,
+    sizeFixRate = 100,
 ): WeaponAttackResult {
+    /*
+     * Renewal:
+     *
+     * weaponAtkRate NÃO é aplicado aqui.
+     *
+     * A auditoria de rAthena mostrou que a aplicação explícita de
+     * sd->bonus.weapon_atk_rate está no caminho #ifndef RENEWAL.
+     *
+     * Portanto, neste ponto usamos o ATK base efetivo da arma
+     * fornecido pelo WeaponContext.
+     */
     const baseAttack =
         Math.max(
             0,
             weapon.attack,
+        );
+
+    /*
+     * Mantemos este campo por compatibilidade com o resultado atual.
+     *
+     * Ele não representa mais uma arma modificada por weaponAtkRate.
+     */
+    const ratedBaseAttack =
+        Math.floor(
+            baseAttack *
+            (100 + weaponAtkRate) /
+            100,
         );
 
     const weaponLevel =
@@ -42,43 +67,16 @@ export function calculateWeaponAttack(
         );
 
     /*
-     * Renewal rAthena:
-     *
-     *   wa->atk += item.atk;
-     *   wa->atk2 += refine bonus;
-     *
-     *   if (weapon_atk_rate)
-     *       wa->atk += wa->atk * weapon_atk_rate / 100;
-     *
-     * Therefore bWeaponAtkRate applies to the
-     * base weapon ATK, NOT to refine ATK.
-     */
-    const ratedBaseAttack =
-        Math.floor(
-            baseAttack *
-            (100 + weaponAtkRate) /
-            100,
-        );
-
-    /*
      * status_weapon_atk():
      *
      *   weapon ATK = wa.atk + wa.atk2
+     *
+     * A composição exata de wa.atk / wa.atk2 com refine ainda será
+     * auditada separadamente.
      */
     const weaponAtk =
         ratedBaseAttack +
         refineBonus;
-
-    /*
-     * Renewal weapon variance uses wa->atk,
-     * which is the rated base weapon ATK and
-     * excludes refine ATK.
-     */
-    const variance =
-        5.0 *
-        ratedBaseAttack *
-        weaponLevel /
-        100.0;
 
     const dexWeaponTypes = new Set([
         "Bow",
@@ -102,11 +100,25 @@ export function calculateWeaponAttack(
             : attacker.str;
 
     /*
+     * Renewal weapon variance:
+     *
+     *   variance = 5.0 * wa->atk * wlv / 100.0
+     *
+     * Importante: usa o ATK base da arma, não o valor acrescido
+     * por refine.
+     */
+    const variance =
+        5.0 *
+        ratedBaseAttack *
+        weaponLevel /
+        100.0;
+
+    /*
      * Renewal base-stat weapon bonus:
      *
-     *   wa->atk * base_stat / 200
+     *   base_stat_bonus = wa->atk * base_stat / 200.0
      *
-     * Again, wa->atk here excludes refine ATK.
+     * Também usa o ATK base da arma, sem refine.
      */
     const baseStatBonus =
         ratedBaseAttack *
@@ -142,7 +154,7 @@ export function calculateWeaponAttack(
             ),
         );
 
-    const value =
+    const baseValue =
         min +
         Math.floor(
             (max - min + 1) *
@@ -174,6 +186,42 @@ export function calculateWeaponAttack(
                 normalizedOverRefineRandom,
             )
             : 0;
+
+    /*
+     * rAthena:
+     *
+     *   weapon damage
+     *       ↓
+     *   weapon damage rate
+     *       ↓
+     *   size fix
+     */
+    const weaponDamageBeforeSizeFix =
+        baseValue +
+        overRefineDamage;
+
+    const weaponDamageAfterRate =
+        Math.floor(
+            weaponDamageBeforeSizeFix *
+            (100 + weaponDamageRate) /
+            100,
+        );
+
+    const normalizedSizeFixRate =
+        Math.max(
+            0,
+            Math.min(
+                100,
+                Math.floor(sizeFixRate),
+            ),
+        );
+
+    const value =
+        Math.floor(
+            weaponDamageAfterRate *
+            normalizedSizeFixRate /
+            100,
+        );
 
     return {
         min,
