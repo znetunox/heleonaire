@@ -1,0 +1,66 @@
+[1mdiff --git a/packages/server/src/game/status/StatusDefinitions.ts b/packages/server/src/game/status/StatusDefinitions.ts[m
+[1mindex 92e37656..274b20c4 100644[m
+[1m--- a/packages/server/src/game/status/StatusDefinitions.ts[m
+[1m+++ b/packages/server/src/game/status/StatusDefinitions.ts[m
+[36m@@ -22,7 +22,10 @@[m [mexport type StatusStatModifier =[m
+         type: "PERCENT";[m
+         stat:[m
+         | "maxHp"[m
+[31m-        | "maxMp";[m
+[32m+[m[32m        | "maxMp"[m
+[32m+[m[32m        | "atkRate"[m
+[32m+[m[32m        | "weaponAtkRate"[m
+[32m+[m[32m        | "weaponDamageRate";[m
+     };[m
+ [m
+ export interface StatusDefinition {[m
+[1mdiff --git a/packages/server/src/game/status/StatusService.ts b/packages/server/src/game/status/StatusService.ts[m
+[1mindex c31cf28b..cb0464a0 100644[m
+[1m--- a/packages/server/src/game/status/StatusService.ts[m
+[1m+++ b/packages/server/src/game/status/StatusService.ts[m
+[36m@@ -25,7 +25,10 @@[m [mexport type StatusStatKey =[m
+ [m
+ export type StatusPercentKey =[m
+     | "maxHpPercent"[m
+[31m-    | "maxMpPercent";[m
+[32m+[m[32m    | "maxMpPercent"[m
+[32m+[m[32m    | "atkRate"[m
+[32m+[m[32m    | "weaponAtkRate"[m
+[32m+[m[32m    | "weaponDamageRate";[m
+ [m
+ export type StatusStatModifiers =[m
+     Partial<Record<StatusStatKey, number>>[m
+[36m@@ -191,10 +194,29 @@[m [mexport class StatusService {[m
+                 }[m
+ [m
+                 if (modifier.type === "PERCENT") {[m
+[31m-                    const key: StatusPercentKey =[m
+[31m-                        modifier.stat === "maxHp"[m
+[31m-                            ? "maxHpPercent"[m
+[31m-                            : "maxMpPercent";[m
+[32m+[m[32m                    let key: StatusPercentKey;[m
+[32m+[m
+[32m+[m[32m                    switch (modifier.stat) {[m
+[32m+[m[32m                        case "maxHp":[m
+[32m+[m[32m                            key = "maxHpPercent";[m
+[32m+[m[32m                            break;[m
+[32m+[m
+[32m+[m[32m                        case "maxMp":[m
+[32m+[m[32m                            key = "maxMpPercent";[m
+[32m+[m[32m                            break;[m
+[32m+[m
+[32m+[m[32m                        case "atkRate":[m
+[32m+[m[32m                            key = "atkRate";[m
+[32m+[m[32m                            break;[m
+[32m+[m
+[32m+[m[32m                        case "weaponAtkRate":[m
+[32m+[m[32m                            key = "weaponAtkRate";[m
+[32m+[m[32m                            break;[m
+[32m+[m
+[32m+[m[32m                        case "weaponDamageRate":[m
+[32m+[m[32m                            key = "weaponDamageRate";[m
+[32m+[m[32m                            break;[m
+[32m+[m[32m                    }[m
+ [m
+                     const current =[m
+                         modifiers[key] ?? 0;[m
