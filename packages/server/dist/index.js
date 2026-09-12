@@ -4,12 +4,9 @@ import express from "express";
 import cors from "cors";
 import { WebSocketTransport } from "@colyseus/ws-transport";
 import { WorldRoom } from "./rooms/WorldRoom";
-import { rathenaDb } from './parsers/rathenaParser';
 import authRouter from './api/authRouter';
 import characterRouter from './api/characterRouter';
 import { MAP_DEFS } from "./maps/mapDefs";
-// Load rAthena databases on startup
-rathenaDb.load();
 const port = Number(process.env.PORT || 2567);
 const app = express();
 app.use(cors());

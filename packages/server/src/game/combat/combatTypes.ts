@@ -1,7 +1,10 @@
 import type {
     CharacterStatValues,
 } from "../stats/StatSystem";
-import type { RathenaElement } from "../../data/rathena/parsers/attrFixParser";
+import type {
+    ParsedAttributeTable,
+    RathenaElement,
+} from "../../data/rathena/parsers/attrFixParser";
 
 export interface CombatStats {
     level: number;
@@ -60,6 +63,7 @@ export interface WeaponSnapshot {
     refineLevel: number;
     refineBonus: number;
     overRefineBonus: number;
+    element?: RathenaElement;
 }
 
 /**
@@ -192,8 +196,10 @@ export interface AttackContext {
     components: AttackComponents;
 
     attackElement: RathenaElement;
+    statusElement?: RathenaElement;
     targetElement: RathenaElement;
     targetElementLevel: number;
+    attributeTable?: ParsedAttributeTable;
 
     skillRatio: number;
     skillConstant: number;
@@ -254,6 +260,7 @@ export interface DamageResult {
     isCritical: boolean;
 
     components: AttackComponents;
+    elementalComponents?: AttackComponents;
 
     resistance: ResistanceResult;
     defense: DefenseResult;

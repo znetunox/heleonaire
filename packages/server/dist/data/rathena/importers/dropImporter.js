@@ -1,15 +1,15 @@
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../../../db/prisma";
 import { parseMobs } from "../parsers/mobParser";
-const prisma = new PrismaClient();
 export async function importDrops() {
     console.log("[rAthena] Reading mob_db.yml...");
     const { mobs } = parseMobs();
-    console.log(`[rAthena] Mobs: ${mobs.size}`);
+    console.log(`[rAthena] Mobs: ${mobs.size} `);
     /*
      * Carrega todos os itens uma única vez.
      *
      * Não devemos fazer findUnique() para cada drop.
-     * São 12.823 entradas.
+     * Os itens são indexados por aegisName para
+     * que cada drop possa ser resolvido em memória.
      */
     const items = await prisma.item.findMany({
         select: {
@@ -18,6 +18,8 @@ export async function importDrops() {
         },
     });
     const itemsByAegisName = new Map(items.map((item) => [item.aegisName, item.id]));
+    console.log(`[DropImporter] Items available: ${items.length} `);
+    console.log("");
     let dropsParsed = 0;
     let dropsImported = 0;
     let missingItems = 0;
@@ -25,7 +27,7 @@ export async function importDrops() {
     /*
      * Processamos cada mob individualmente.
      *
-     * Isso também permite reconciliar os drops daquele mob:
+     * Isso permite reconciliar os drops daquele mob:
      * se uma entrada antiga desaparecer do rAthena,
      * ela será removida do banco.
      */
@@ -41,7 +43,15 @@ export async function importDrops() {
                 missingItems++;
                 continue;
             }
-            const sourceKey = `rathena:${mob.id}:${index}`;
+            /*
+             * A posição do drop no mob_db.yml faz parte
+             * da identidade original da entrada rAthena.
+             *
+             * Exemplo:
+             * rathena:1002:0
+             * rathena:1002:1
+             */
+            const sourceKey = `rathena:${mob.id}:${index} `;
             validSourceKeys.add(sourceKey);
             try {
                 await prisma.dropEntry.upsert({
@@ -52,17 +62,20 @@ export async function importDrops() {
                         mobId: mob.id,
                         itemId,
                         rate: drop.rate,
-                        stealProtected: drop.stealProtected,
+                        stealProtected: drop.stealProtected ?? false,
                         sourceKey,
                     },
                     update: {
                         mobId: mob.id,
                         itemId,
                         rate: drop.rate,
-                        stealProtected: drop.stealProtected,
+                        stealProtected: drop.stealProtected ?? false,
                     },
                 });
                 dropsImported++;
+                if (dropsImported % 500 === 0) {
+                    console.log(`[DropImporter] Progress: ${dropsImported}/${dropsParsed}`);
+                }
             }
             catch (error) {
                 failed++;
@@ -114,37 +127,3 @@ export async function importDrops() {
         failed,
     };
 }
-async function main() {
-    const start = Date.now();
-    try {
-        const result = await importDrops();
-        const elapsed = ((Date.now() - start) / 1000).toFixed(2);
-        console.log("");
-        console.log("========================================");
-        console.log("          DROP IMPORT COMPLETE");
-        console.log("========================================");
-        console.log("");
-        console.log(`Mobs:             ${result.mobs}`);
-        console.log(`Drops parsed:     ${result.dropsParsed}`);
-        console.log(`Drops imported:   ${result.dropsImported}`);
-        console.log(`Missing items:    ${result.missingItems}`);
-        console.log(`Failed:           ${result.failed}`);
-        console.log(`Time:             ${elapsed}s`);
-        console.log("");
-        if (result.missingItems > 0 || result.failed > 0) {
-            console.error("[DropImporter] Import finished with errors.");
-            process.exitCode = 1;
-            return;
-        }
-        console.log("[DropImporter] Import successful.");
-    }
-    catch (error) {
-        console.error("[DropImporter] Fatal error:");
-        console.error(error);
-        process.exitCode = 1;
-    }
-    finally {
-        await prisma.$disconnect();
-    }
-}
-main();

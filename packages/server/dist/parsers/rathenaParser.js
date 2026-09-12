@@ -36,6 +36,7 @@ function parseMobs(filePath) {
             attack: raw.Attack ?? 0,
             attack2: raw.Attack2 ?? 0,
             defense: raw.Defense ?? 0,
+            resistance: raw.Resistance ?? 0,
             magicDefense: raw.MagicDefense ?? 0,
             str: raw.Str ?? 1,
             agi: raw.Agi ?? 1,
@@ -154,6 +155,12 @@ class RathenaDatabase {
     }
     getMobCount() { return this.mobs.size; }
     getItemCount() { return this.items.size; }
+    getAllItems() {
+        return this.items.values();
+    }
+    isLoaded() {
+        return this.loaded;
+    }
     getAllMobs() {
         return this.mobs.values();
     }

@@ -4,6 +4,8 @@ import {
     itemScriptInterpreter,
 } from "../items/ItemScriptInterpreter";
 
+import type { RathenaElement } from "../../data/rathena/parsers/attrFixParser";
+
 const VALID_LOCATIONS = new Set([
     "Ammo",
     "Armor",
@@ -579,6 +581,7 @@ export class EquipmentService {
             refineLevel,
             refineBonus,
             overRefineBonus,
+            element: "Neutral" as RathenaElement,
         };
     }
 

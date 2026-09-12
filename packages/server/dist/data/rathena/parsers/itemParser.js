@@ -59,6 +59,7 @@ function parseRawItem(raw) {
         gender: toOptionalString(raw.Gender),
         locations: toOptionalJson(raw.Locations),
         view: toOptionalNumber(raw.View),
+        aliasName: raw.AliasName,
         script: toOptionalString(raw.Script),
         equipScript: toOptionalString(raw.EquipScript),
         unequipScript: toOptionalString(raw.UnEquipScript),

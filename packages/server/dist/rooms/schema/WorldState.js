@@ -18,6 +18,7 @@ export class Player extends Schema {
         this.characterId = "";
         this.name = "";
         this.class = "knight";
+        this.jobKey = "SWORDMAN";
         this.faction = "heleonaire";
         // ─────────────────────────────────────────────────────────────
         // BASE LEVEL / JOB LEVEL
@@ -80,19 +81,42 @@ export class Player extends Schema {
         // DERIVED COMBAT STATS
         // ─────────────────────────────────────────────────────────────
         /**
-         * Valores derivados temporários.
+         * Ataque físico.
          *
-         * Posteriormente deverão ser recalculados pelo StatSystem
-         * a partir de:
+         * Atualmente calculado pelo StatSystem.
+         * Futuramente também receberá modificadores de:
          *
          * Base Stats
          * + Equipamentos
-         * + Classe
-         * + Buffs/Debuffs
          * + Arma
+         * + Buffs/Debuffs
+         * + Classe
          */
         this.atk = 2;
+        /**
+         * Ataque mágico.
+         */
+        this.matk = 2;
+        /**
+         * Defesa física.
+         */
         this.def = 1;
+        /**
+         * Defesa mágica.
+         */
+        this.magicDefense = 1;
+        /**
+         * Precisão física.
+         */
+        this.hit = 101;
+        /**
+         * Esquiva física.
+         */
+        this.flee = 1;
+        /**
+         * Taxa de crítico.
+         */
+        this.crit = 0;
         /**
          * ASPD em milissegundos por ataque.
          */
@@ -115,6 +139,10 @@ __decorate([
     type("string"),
     __metadata("design:type", String)
 ], Player.prototype, "class", void 0);
+__decorate([
+    type("string"),
+    __metadata("design:type", String)
+], Player.prototype, "jobKey", void 0);
 __decorate([
     type("string"),
     __metadata("design:type", String)
@@ -214,7 +242,27 @@ __decorate([
 __decorate([
     type("number"),
     __metadata("design:type", Number)
+], Player.prototype, "matk", void 0);
+__decorate([
+    type("number"),
+    __metadata("design:type", Number)
 ], Player.prototype, "def", void 0);
+__decorate([
+    type("number"),
+    __metadata("design:type", Number)
+], Player.prototype, "magicDefense", void 0);
+__decorate([
+    type("number"),
+    __metadata("design:type", Number)
+], Player.prototype, "hit", void 0);
+__decorate([
+    type("number"),
+    __metadata("design:type", Number)
+], Player.prototype, "flee", void 0);
+__decorate([
+    type("number"),
+    __metadata("design:type", Number)
+], Player.prototype, "crit", void 0);
 __decorate([
     type("number"),
     __metadata("design:type", Number)
@@ -245,12 +293,19 @@ export class Mob extends Schema {
         this.targetX = 300;
         this.targetY = 300;
         this.targetId = "";
-        // ─────────────────────────────────────────────────────────────
         // COMBAT
-        // ─────────────────────────────────────────────────────────────
         this.atk = 10;
+        this.atk2 = 10;
         this.def = 2;
+        this.magicDefense = 0;
+        this.str = 1;
+        this.agi = 1;
+        this.vit = 1;
+        this.int = 1;
+        this.dex = 1;
+        this.luk = 1;
         this.exp = 50;
+        this.jobExp = 0;
         // ─────────────────────────────────────────────────────────────
         // STATE
         // ─────────────────────────────────────────────────────────────
@@ -309,11 +364,47 @@ __decorate([
 __decorate([
     type("number"),
     __metadata("design:type", Number)
+], Mob.prototype, "atk2", void 0);
+__decorate([
+    type("number"),
+    __metadata("design:type", Number)
 ], Mob.prototype, "def", void 0);
 __decorate([
     type("number"),
     __metadata("design:type", Number)
+], Mob.prototype, "magicDefense", void 0);
+__decorate([
+    type("number"),
+    __metadata("design:type", Number)
+], Mob.prototype, "str", void 0);
+__decorate([
+    type("number"),
+    __metadata("design:type", Number)
+], Mob.prototype, "agi", void 0);
+__decorate([
+    type("number"),
+    __metadata("design:type", Number)
+], Mob.prototype, "vit", void 0);
+__decorate([
+    type("number"),
+    __metadata("design:type", Number)
+], Mob.prototype, "int", void 0);
+__decorate([
+    type("number"),
+    __metadata("design:type", Number)
+], Mob.prototype, "dex", void 0);
+__decorate([
+    type("number"),
+    __metadata("design:type", Number)
+], Mob.prototype, "luk", void 0);
+__decorate([
+    type("number"),
+    __metadata("design:type", Number)
 ], Mob.prototype, "exp", void 0);
+__decorate([
+    type("number"),
+    __metadata("design:type", Number)
+], Mob.prototype, "jobExp", void 0);
 __decorate([
     type("boolean"),
     __metadata("design:type", Boolean)
@@ -322,11 +413,62 @@ __decorate([
     type("string"),
     __metadata("design:type", String)
 ], Mob.prototype, "spriteKey", void 0);
+export class GroundDrop extends Schema {
+    constructor() {
+        super(...arguments);
+        this.id = "";
+        this.itemId = 0;
+        this.itemName = "";
+        this.quantity = 1;
+        this.x = 0;
+        this.y = 0;
+        this.ownerId = "";
+        this.ownershipExpiresAt = 0;
+        this.expiresAt = 0;
+    }
+}
+__decorate([
+    type("string"),
+    __metadata("design:type", String)
+], GroundDrop.prototype, "id", void 0);
+__decorate([
+    type("number"),
+    __metadata("design:type", Number)
+], GroundDrop.prototype, "itemId", void 0);
+__decorate([
+    type("string"),
+    __metadata("design:type", String)
+], GroundDrop.prototype, "itemName", void 0);
+__decorate([
+    type("number"),
+    __metadata("design:type", Number)
+], GroundDrop.prototype, "quantity", void 0);
+__decorate([
+    type("number"),
+    __metadata("design:type", Number)
+], GroundDrop.prototype, "x", void 0);
+__decorate([
+    type("number"),
+    __metadata("design:type", Number)
+], GroundDrop.prototype, "y", void 0);
+__decorate([
+    type("string"),
+    __metadata("design:type", String)
+], GroundDrop.prototype, "ownerId", void 0);
+__decorate([
+    type("number"),
+    __metadata("design:type", Number)
+], GroundDrop.prototype, "ownershipExpiresAt", void 0);
+__decorate([
+    type("number"),
+    __metadata("design:type", Number)
+], GroundDrop.prototype, "expiresAt", void 0);
 export class WorldState extends Schema {
     constructor() {
         super(...arguments);
         this.players = new MapSchema();
         this.mobs = new MapSchema();
+        this.drops = new MapSchema();
     }
 }
 __decorate([
@@ -337,3 +479,7 @@ __decorate([
     type({ map: Mob }),
     __metadata("design:type", Object)
 ], WorldState.prototype, "mobs", void 0);
+__decorate([
+    type({ map: GroundDrop }),
+    __metadata("design:type", Object)
+], WorldState.prototype, "drops", void 0);

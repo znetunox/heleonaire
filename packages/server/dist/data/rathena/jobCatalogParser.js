@@ -2,6 +2,13 @@ import { parseJobs } from "./parsers/jobParser";
 import { parseJobStats } from "./parsers/jobStatsParser";
 import { parseSkillTree } from "./parsers/skillTreeParser";
 import { normalizeJobName } from "./jobName";
+const HELEONAIRE_CLASSES = [
+    "knight",
+    "assassin",
+    "archer",
+    "mage",
+    "cleric",
+];
 /**
  * Progressão oficial do personagem dentro do Heleonaire.
  *
@@ -322,13 +329,7 @@ export function parseJobCatalog() {
     const playableJobs = jobs
         .filter((job) => job.playable)
         .map((job) => job.job);
-    const branches = [
-        "knight",
-        "assassin",
-        "archer",
-        "mage",
-        "cleric",
-    ].map((heleonaireClass) => ({
+    const branches = HELEONAIRE_CLASSES.map((heleonaireClass) => ({
         heleonaireClass,
         jobs: jobs
             .filter((job) => job.heleonaireClass === heleonaireClass)
@@ -361,13 +362,7 @@ export function parseJobCatalog() {
     };
 }
 export function getHeleonaireProgression() {
-    return [
-        "knight",
-        "assassin",
-        "archer",
-        "mage",
-        "cleric",
-    ].map((heleonaireClass) => ({
+    return HELEONAIRE_CLASSES.map((heleonaireClass) => ({
         heleonaireClass,
         jobs: HELEONAIRE_PROGRESSION
             .filter((entry) => entry.heleonaireClass === heleonaireClass)

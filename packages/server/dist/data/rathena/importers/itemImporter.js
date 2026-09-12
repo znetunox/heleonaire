@@ -1,7 +1,6 @@
 import { createHash } from "crypto";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../../../db/prisma";
 import { parseItems } from "../parsers/itemParser";
-const prisma = new PrismaClient();
 function calculateSourceHash(item) {
     const normalized = JSON.stringify(item);
     return createHash("sha256")
@@ -97,15 +96,11 @@ async function importItem(item) {
         },
     });
 }
-async function main() {
-    console.log("");
-    console.log("=========================================");
-    console.log("       rAthena ITEM IMPORTER");
-    console.log("=========================================");
-    console.log("");
+export async function importItems() {
+    console.log("[rAthena] Reading item databases...");
     const result = parseItems();
-    console.log(`Items parsed: ${result.items.size}`);
-    console.log(`Duplicates:   ${result.duplicates}`);
+    console.log(`[rAthena] Items parsed: ${result.items.size} `);
+    console.log(`[rAthena] Duplicates:    ${result.duplicates} `);
     console.log("");
     let imported = 0;
     let failed = 0;
@@ -115,33 +110,28 @@ async function main() {
             await importItem(item);
             imported++;
             if (imported % 500 === 0) {
-                console.log(`Progress: ${imported}/${result.items.size}`);
+                console.log(`[ItemImporter] Progress: ${imported}/${result.items.size}`);
             }
         }
         catch (error) {
             failed++;
-            console.error(`[ERROR] Item ${item.id} (${item.aegisName})`);
+            console.error(`[ItemImporter] Failed: item=${item.id} (${item.aegisName})`);
             console.error(error);
         }
     }
-    const elapsed = Date.now() - start;
+    const elapsed = ((Date.now() - start) / 1000).toFixed(2);
     console.log("");
-    console.log("=========================================");
-    console.log("          IMPORT FINISHED");
-    console.log("=========================================");
-    console.log(`Parsed:     ${result.items.size}`);
-    console.log(`Imported:   ${imported}`);
-    console.log(`Failed:     ${failed}`);
-    console.log(`Time:       ${(elapsed / 1000).toFixed(2)}s`);
-    console.log("=========================================");
+    console.log("[ItemImporter] Import finished.");
+    console.log(`[ItemImporter] Parsed:     ${result.items.size}`);
+    console.log(`[ItemImporter] Duplicates: ${result.duplicates}`);
+    console.log(`[ItemImporter] Imported:   ${imported}`);
+    console.log(`[ItemImporter] Failed:     ${failed}`);
+    console.log(`[ItemImporter] Time:       ${elapsed}s`);
     console.log("");
-    await prisma.$disconnect();
-    if (failed > 0) {
-        process.exitCode = 1;
-    }
+    return {
+        items: result.items.size,
+        duplicates: result.duplicates,
+        imported,
+        failed,
+    };
 }
-main().catch(async (error) => {
-    console.error(error);
-    await prisma.$disconnect();
-    process.exitCode = 1;
-});

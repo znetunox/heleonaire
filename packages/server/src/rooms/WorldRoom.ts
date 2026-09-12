@@ -20,6 +20,7 @@ import {
 } from "../game/combat/CombatStateBuilder";
 
 import { resolveBasicAttackComponents } from "../game/combat/basicAttackResolver";
+import { resolveEffectiveAttackElement } from "../game/combat/effectiveAttackElementResolver";
 
 import { combatSystem } from "../game/combat/CombatSystem";
 import prisma from "../db/prisma";
@@ -2044,7 +2045,10 @@ export class WorldRoom extends Room<WorldState> {
                     mobSnapshot,
                 components,
                 attackElement:
-                    "Neutral",
+                    resolveEffectiveAttackElement(
+                        playerSnapshot.weapon?.element ?? "Neutral",
+                        {},
+                    ),
                 targetElement:
                     mobSnapshot.element as RathenaElement,
                 targetElementLevel:

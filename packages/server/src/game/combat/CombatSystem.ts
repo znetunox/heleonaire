@@ -18,6 +18,12 @@ import {
     calculateCriticalDamage,
 } from "./criticalCalculator";
 
+import {
+    calculateElementalAttackComponents,
+} from "./elementComponentCalculator";
+
+import { gameDataService } from "../../services/GameDataService";
+
 import type {
     AttackContext,
     DamageResult,
@@ -29,9 +35,24 @@ export class CombatSystem {
         context: AttackContext,
     ): DamageResult {
 
+        const attributeTable =
+            context.attributeTable ??
+            gameDataService.getAttributeTable();
+
+        const elementalComponents =
+            calculateElementalAttackComponents(
+                context.components,
+                context.attacker.combatStats.batk,
+                context.attackElement,
+                context.targetElement,
+                context.targetElementLevel,
+                attributeTable,
+                context.statusElement ?? "Neutral",
+            ).output;
+
         const attack =
             calculateAttackComposition(
-                context.components,
+                elementalComponents,
                 context.attacker.combatStats.patk,
                 context.attacker.atkRate,
                 context.skillRatio,
@@ -55,7 +76,6 @@ export class CombatSystem {
                 },
             );
 
-        
         const postDefense =
             calculatePostDefenseDamage(
                 defense.effectiveDef,
@@ -82,6 +102,8 @@ export class CombatSystem {
             components:
                 context.components,
 
+            elementalComponents,
+
             resistance,
 
             defense,
@@ -93,7 +115,7 @@ export class CombatSystem {
                 resistance.damageAfterResistance,
 
             postDefenseDamage:
-                damage,
+                postDefense.damage,
 
         };
     }

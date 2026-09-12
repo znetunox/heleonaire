@@ -1,14 +1,10 @@
 import { createHash } from "crypto";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../../../db/prisma";
 import { parseMobs } from "../parsers/mobParser";
-const prisma = new PrismaClient();
 function calculateSourceHash(mob) {
     return createHash("sha256")
         .update(JSON.stringify(mob))
         .digest("hex");
-}
-function optionalNumber(value) {
-    return value ?? null;
 }
 async function importMob(mob) {
     const sourceHash = calculateSourceHash(mob);
@@ -28,6 +24,7 @@ async function importMob(mob) {
             attack: mob.attack,
             attack2: mob.attack2,
             defense: mob.defense,
+            resistance: mob.resistance,
             magicDefense: mob.magicDefense,
             str: mob.str,
             agi: mob.agi,
@@ -61,6 +58,7 @@ async function importMob(mob) {
             attack: mob.attack,
             attack2: mob.attack2,
             defense: mob.defense,
+            resistance: mob.resistance,
             magicDefense: mob.magicDefense,
             str: mob.str,
             agi: mob.agi,
@@ -85,15 +83,11 @@ async function importMob(mob) {
         },
     });
 }
-async function main() {
-    console.log("");
-    console.log("=========================================");
-    console.log("       rAthena MOB IMPORTER");
-    console.log("=========================================");
-    console.log("");
+export async function importMobs() {
+    console.log("[rAthena] Reading mob_db.yml...");
     const result = parseMobs();
-    console.log(`Mobs parsed: ${result.mobs.size}`);
-    console.log(`Duplicates:  ${result.duplicates}`);
+    console.log(`[rAthena] Mobs parsed: ${result.mobs.size} `);
+    console.log(`[rAthena] Duplicates:    ${result.duplicates} `);
     console.log("");
     let imported = 0;
     let failed = 0;
@@ -103,33 +97,28 @@ async function main() {
             await importMob(mob);
             imported++;
             if (imported % 500 === 0) {
-                console.log(`Progress: ${imported}/${result.mobs.size}`);
+                console.log(`[MobImporter] Progress: ${imported}/${result.mobs.size}`);
             }
         }
         catch (error) {
             failed++;
-            console.error(`[ERROR] Mob ${mob.id} (${mob.aegisName})`);
+            console.error(`[MobImporter] Failed: mob=${mob.id} (${mob.aegisName})`);
             console.error(error);
         }
     }
-    const elapsed = Date.now() - start;
+    const elapsed = ((Date.now() - start) / 1000).toFixed(2);
     console.log("");
-    console.log("=========================================");
-    console.log("          IMPORT FINISHED");
-    console.log("=========================================");
-    console.log(`Parsed:     ${result.mobs.size}`);
-    console.log(`Imported:   ${imported}`);
-    console.log(`Failed:     ${failed}`);
-    console.log(`Time:       ${(elapsed / 1000).toFixed(2)}s`);
-    console.log("=========================================");
+    console.log("[MobImporter] Import finished.");
+    console.log(`[MobImporter] Parsed:     ${result.mobs.size}`);
+    console.log(`[MobImporter] Duplicates: ${result.duplicates}`);
+    console.log(`[MobImporter] Imported:   ${imported}`);
+    console.log(`[MobImporter] Failed:     ${failed}`);
+    console.log(`[MobImporter] Time:       ${elapsed}s`);
     console.log("");
-    await prisma.$disconnect();
-    if (failed > 0) {
-        process.exitCode = 1;
-    }
+    return {
+        mobs: result.mobs.size,
+        duplicates: result.duplicates,
+        imported,
+        failed,
+    };
 }
-main().catch(async (error) => {
-    console.error(error);
-    await prisma.$disconnect();
-    process.exitCode = 1;
-});

@@ -1,4 +1,9 @@
 import { prisma } from "../db/prisma";
+import { RATHENA_DB_RE } from "../data/rathena/paths";
+import {
+    parseAttributeTable,
+    ParsedAttributeTable,
+} from "../data/rathena/parsers/attrFixParser";
 
 export interface GameMobData {
     id: number;
@@ -117,6 +122,7 @@ class GameDataService {
     private items = new Map<number, GameItemData>();
     private drops = new Map<number, GameDropData[]>();
     private sizeFixRules = new Map<string, GameSizeFixData>();
+    private attributeTable: ParsedAttributeTable | null = null;
 
     private initialized = false;
     private initializationPromise: Promise<void> | null = null;
@@ -292,12 +298,30 @@ class GameDataService {
             );
         }
 
+        this.attributeTable = parseAttributeTable(
+            `${RATHENA_DB_RE}/attr_fix.yml`,
+        );
+
         console.log(
             `[GameDataService] Loaded ${this.mobs.size} mobs, ` +
             `${this.items.size} items, ` +
-            `${dropRows.length} drops and ` +
-            `${this.sizeFixRules.size} Size Fix rules.`
+            `${dropRows.length} drops, ` +
+            `${this.sizeFixRules.size} Size Fix rules and ` +
+            `Attribute Table (v${this.attributeTable.version}).`
         );
+    }
+
+    // ============================================================
+    // ATTRIBUTE TABLE
+    // ============================================================
+
+    getAttributeTable(): ParsedAttributeTable {
+        if (!this.attributeTable) {
+            this.attributeTable = parseAttributeTable(
+                `${RATHENA_DB_RE}/attr_fix.yml`,
+            );
+        }
+        return this.attributeTable;
     }
 
     // ============================================================

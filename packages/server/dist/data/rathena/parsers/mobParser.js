@@ -58,6 +58,7 @@ function parseRawMob(raw) {
         attack: toNumber(raw.Attack),
         attack2: toNumber(raw.Attack2),
         defense: toNumber(raw.Defense),
+        resistance: toNumber(raw.Resistance),
         magicDefense: toNumber(raw.MagicDefense),
         str: toNumber(raw.Str),
         agi: toNumber(raw.Agi),

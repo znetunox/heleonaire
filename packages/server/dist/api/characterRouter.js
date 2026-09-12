@@ -1,9 +1,13 @@
 import { Router } from 'express';
 import jwt from 'jsonwebtoken';
 import prisma from '../db/prisma';
+import { StatSystem } from '../game/stats/StatSystem';
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'heleonaire_dev_secret';
-// Middleware: verifica JWT
+const statSystem = new StatSystem(prisma);
+// ─────────────────────────────────────────────────────────────
+// AUTH
+// ─────────────────────────────────────────────────────────────
 function requireAuth(req, res, next) {
     const auth = req.headers.authorization;
     if (!auth?.startsWith('Bearer ')) {
@@ -19,158 +23,448 @@ function requireAuth(req, res, next) {
         res.status(401).json({ error: 'Token inválido' });
     }
 }
-// GET /api/characters — lista personagens da conta
+// ─────────────────────────────────────────────────────────────
+// GET /api/characters
+// Lista personagens da conta
+// ─────────────────────────────────────────────────────────────
 router.get('/', requireAuth, async (req, res) => {
-    const accountId = req.accountId;
-    const chars = await prisma.character.findMany({
-        where: { accountId },
-        select: {
-            id: true,
-            name: true,
-            class: true,
-            faction: true,
-            level: true,
-            mapId: true,
-            availablePoints: true,
-        },
-        orderBy: { createdAt: 'asc' }
-    });
-    res.json(chars);
-});
-// POST /api/characters — cria personagem
-router.post('/', requireAuth, async (req, res) => {
-    const accountId = req.accountId;
-    const { name, charClass, faction } = req.body;
-    const validClasses = ['knight', 'assassin', 'archer', 'mage', 'cleric'];
-    const validFactions = ['heleonaire', 'darkpact'];
-    if (!name || !charClass || !faction) {
-        res.status(400).json({ error: 'name, charClass e faction são obrigatórios' });
-        return;
-    }
-    if (!validClasses.includes(charClass)) {
-        res.status(400).json({ error: 'Classe inválida' });
-        return;
-    }
-    if (!validFactions.includes(faction)) {
-        res.status(400).json({ error: 'Facção inválida' });
-        return;
-    }
-    const count = await prisma.character.count({ where: { accountId } });
-    if (count >= 3) {
-        res.status(400).json({ error: 'Máximo de 3 personagens por conta' });
-        return;
-    }
-    const existing = await prisma.character.findUnique({ where: { name } });
-    if (existing) {
-        res.status(409).json({ error: 'Nome já está em uso' });
-        return;
-    }
-    // Base stats por classe
-    const baseStats = {
-        knight: { str: 9, agi: 6, vit: 8, int: 3, dex: 5, luk: 4, maxHp: 150, maxMp: 30 },
-        assassin: { str: 7, agi: 9, vit: 5, int: 4, dex: 7, luk: 8, maxHp: 100, maxMp: 40 },
-        archer: { str: 6, agi: 8, vit: 5, int: 5, dex: 9, luk: 7, maxHp: 100, maxMp: 40 },
-        mage: { str: 3, agi: 5, vit: 4, int: 9, dex: 7, luk: 7, maxHp: 80, maxMp: 120 },
-        cleric: { str: 4, agi: 5, vit: 6, int: 8, dex: 6, luk: 6, maxHp: 90, maxMp: 100 },
-    };
-    const stats = baseStats[charClass];
-    const character = await prisma.character.create({
-        data: {
-            accountId,
-            name,
-            class: charClass,
-            faction,
-            ...stats,
-            hp: stats.maxHp,
-            mp: stats.maxMp,
-            availablePoints: 0,
-        }
-    });
-    const serializedChar = {
-        ...character,
-        baseExp: character.baseExp.toString(),
-        jobExp: character.jobExp.toString(),
-        gold: character.gold.toString(),
-        availablePoints: character.availablePoints.toString(),
-    };
-    res.json(serializedChar);
-});
-// GET /api/characters/:id — busca personagem
-router.get('/:id', requireAuth, async (req, res) => {
-    const accountId = req.accountId;
-    const character = await prisma.character.findUnique({
-        where: { id: req.params.id }
-    });
-    if (!character) {
-        res.status(404).json({ error: 'Personagem não encontrado' });
-        return;
-    }
-    const serializedChar = {
-        ...character,
-        baseExp: character.baseExp.toString(),
-        jobExp: character.jobExp.toString(),
-        gold: character.gold.toString(),
-        availablePoints: character.availablePoints.toString(),
-    };
-    res.json(serializedChar);
-});
-// POST /api/characters/:id/stats/distribute — distribui pontos de atributo
-router.post('/:id/stats/distribute', requireAuth, async (req, res) => {
-    const accountId = req.accountId;
-    const { str, agi, vit, int, dex, luk } = req.body;
-    const character = await prisma.character.findUnique({
-        where: { id: req.params.id }
-    });
-    if (!character) {
-        res.status(404).json({ error: 'Personagem não encontrado' });
-        return;
-    }
-    if (character.accountId !== accountId) {
-        res.status(403).json({ error: 'Acesso negado' });
-        return;
-    }
-    // Validação dos pontos
-    const pointsToDistribute = (str ?? 0) + (agi ?? 0) + (vit ?? 0) + (int ?? 0) + (dex ?? 0) + (luk ?? 0);
-    if (pointsToDistribute > (character.availablePoints || 0)) {
-        res.status(400).json({
-            error: 'Pontos insuficientes',
-            available: character.availablePoints,
-            requested: pointsToDistribute
+    try {
+        const accountId = req.accountId;
+        const chars = await prisma.character.findMany({
+            where: { accountId },
+            select: {
+                id: true,
+                name: true,
+                classKey: true,
+                faction: true,
+                level: true,
+                mapId: true,
+                availablePoints: true,
+            },
+            orderBy: { createdAt: 'asc' },
         });
-        return;
+        const serializedChars = chars.map((char) => ({
+            id: char.id,
+            name: char.name,
+            class: char.classKey,
+            faction: char.faction,
+            level: char.level,
+            mapId: char.mapId,
+            availablePoints: char.availablePoints,
+        }));
+        res.json(serializedChars);
     }
-    // Atualiza atributos
-    const updatedCharacter = await prisma.character.update({
-        where: { id: character.id },
-        data: {
-            str: character.str + (str ?? 0),
-            agi: character.agi + (agi ?? 0),
-            vit: character.vit + (vit ?? 0),
-            int: character.int + (int ?? 0),
-            dex: character.dex + (dex ?? 0),
-            luk: character.luk + (luk ?? 0),
-            availablePoints: character.availablePoints - pointsToDistribute,
-        },
-    });
-    res.json({
-        message: 'Atributos distribuídos com sucesso',
-        character: {
-            ...updatedCharacter,
-            availablePoints: updatedCharacter.availablePoints.toString(),
-        }
-    });
+    catch (error) {
+        console.error('[CharacterRouter] Failed to list characters:', error);
+        res.status(500).json({
+            error: 'Erro ao carregar personagens',
+        });
+    }
 });
-// DELETE /api/characters/:id — deleta personagem
-router.delete('/:id', requireAuth, async (req, res) => {
-    const accountId = req.accountId;
-    const character = await prisma.character.findFirst({
-        where: { id: req.params.id, accountId }
-    });
-    if (!character) {
-        res.status(404).json({ error: 'Personagem não encontrado' });
-        return;
+// ─────────────────────────────────────────────────────────────
+// POST /api/characters
+// Cria personagem
+// ─────────────────────────────────────────────────────────────
+router.post('/', requireAuth, async (req, res) => {
+    try {
+        const accountId = req.accountId;
+        const { name, charClass, faction } = req.body;
+        const validClasses = [
+            'knight',
+            'assassin',
+            'archer',
+            'mage',
+            'cleric',
+        ];
+        const validFactions = [
+            'heleonaire',
+            'darkpact',
+        ];
+        if (!name || !charClass || !faction) {
+            res.status(400).json({
+                error: 'name, charClass e faction são obrigatórios',
+            });
+            return;
+        }
+        if (!validClasses.includes(charClass)) {
+            res.status(400).json({
+                error: 'Classe inválida',
+            });
+            return;
+        }
+        if (!validFactions.includes(faction)) {
+            res.status(400).json({
+                error: 'Facção inválida',
+            });
+            return;
+        }
+        const count = await prisma.character.count({
+            where: { accountId },
+        });
+        if (count >= 3) {
+            res.status(400).json({
+                error: 'Máximo de 3 personagens por conta',
+            });
+            return;
+        }
+        const existing = await prisma.character.findUnique({
+            where: { name },
+        });
+        if (existing) {
+            res.status(409).json({
+                error: 'Nome já está em uso',
+            });
+            return;
+        }
+        // ─────────────────────────────────────────────────────────
+        // Base stats iniciais por classe
+        //
+        // Estes valores continuam sendo temporários.
+        // Posteriormente serão substituídos pela definição
+        // oficial da classe/job importada do rAthena.
+        // ─────────────────────────────────────────────────────────
+        const baseStats = {
+            knight: {
+                str: 9,
+                agi: 6,
+                vit: 8,
+                int: 3,
+                dex: 5,
+                luk: 4,
+                maxHp: 150,
+                maxMp: 30,
+            },
+            assassin: {
+                str: 7,
+                agi: 9,
+                vit: 5,
+                int: 4,
+                dex: 7,
+                luk: 8,
+                maxHp: 100,
+                maxMp: 40,
+            },
+            archer: {
+                str: 6,
+                agi: 8,
+                vit: 5,
+                int: 5,
+                dex: 9,
+                luk: 7,
+                maxHp: 100,
+                maxMp: 40,
+            },
+            mage: {
+                str: 3,
+                agi: 5,
+                vit: 4,
+                int: 9,
+                dex: 7,
+                luk: 7,
+                maxHp: 80,
+                maxMp: 120,
+            },
+            cleric: {
+                str: 4,
+                agi: 5,
+                vit: 6,
+                int: 8,
+                dex: 6,
+                luk: 6,
+                maxHp: 90,
+                maxMp: 100,
+            },
+        };
+        const stats = baseStats[charClass];
+        const initialJobKey = {
+            knight: "SWORDMAN",
+            assassin: "THIEF",
+            archer: "ARCHER",
+            mage: "MAGE",
+            cleric: "ACOLYTE",
+        };
+        const jobKey = initialJobKey[charClass];
+        if (!jobKey) {
+            return res.status(400).json({
+                error: "Invalid initial job for class",
+            });
+        }
+        const character = await prisma.character.create({
+            data: {
+                accountId,
+                name,
+                classKey: charClass,
+                jobKey,
+                faction,
+                ...stats,
+                hp: stats.maxHp,
+                mp: stats.maxMp,
+                availablePoints: 0,
+            },
+        });
+        const serializedChar = {
+            ...character,
+            baseExp: character.baseExp.toString(),
+            jobExp: character.jobExp.toString(),
+            gold: character.gold.toString(),
+        };
+        res.json(serializedChar);
     }
-    await prisma.character.delete({ where: { id: req.params.id } });
-    res.json({ message: 'Personagem deletado' });
+    catch (error) {
+        console.error('[CharacterRouter] Failed to create character:', error);
+        res.status(500).json({
+            error: 'Erro ao criar personagem',
+        });
+    }
+});
+// ─────────────────────────────────────────────────────────────
+// GET /api/characters/:id
+// Busca personagem
+// ─────────────────────────────────────────────────────────────
+router.get('/:id', requireAuth, async (req, res) => {
+    try {
+        const accountId = req.accountId;
+        const character = await prisma.character.findFirst({
+            where: {
+                id: req.params.id,
+                accountId,
+            },
+        });
+        if (!character) {
+            res.status(404).json({
+                error: 'Personagem não encontrado',
+            });
+            return;
+        }
+        const serializedChar = {
+            ...character,
+            baseExp: character.baseExp.toString(),
+            jobExp: character.jobExp.toString(),
+            gold: character.gold.toString(),
+        };
+        res.json(serializedChar);
+    }
+    catch (error) {
+        console.error('[CharacterRouter] Failed to get character:', error);
+        res.status(500).json({
+            error: 'Erro ao carregar personagem',
+        });
+    }
+});
+// ─────────────────────────────────────────────────────────────
+// POST /api/characters/:id/stats/distribute
+// Distribui pontos de atributo
+// ─────────────────────────────────────────────────────────────
+router.post('/:id/stats/distribute', requireAuth, async (req, res) => {
+    try {
+        const accountId = req.accountId;
+        const { str = 0, agi = 0, vit = 0, int = 0, dex = 0, luk = 0, } = req.body;
+        // ───────────────────────────────────────────────────────
+        // Validação dos valores enviados
+        // ───────────────────────────────────────────────────────
+        const requestedStats = {
+            str,
+            agi,
+            vit,
+            int,
+            dex,
+            luk,
+        };
+        for (const [stat, amount] of Object.entries(requestedStats)) {
+            if (typeof amount !== 'number' ||
+                !Number.isInteger(amount) ||
+                amount < 0) {
+                res.status(400).json({
+                    error: `Quantidade inválida para o atributo ${stat} `,
+                });
+                return;
+            }
+        }
+        const hasDistribution = Object.values(requestedStats).some((amount) => amount > 0);
+        if (!hasDistribution) {
+            res.status(400).json({
+                error: 'Nenhum ponto de atributo foi distribuído',
+            });
+            return;
+        }
+        // ───────────────────────────────────────────────────────
+        // Transação
+        // ───────────────────────────────────────────────────────
+        const result = await prisma.$transaction(async (tx) => {
+            const character = await tx.character.findFirst({
+                where: {
+                    id: req.params.id,
+                    accountId,
+                },
+            });
+            if (!character) {
+                throw new Error('CHARACTER_NOT_FOUND');
+            }
+            const stats = {
+                str: character.str,
+                agi: character.agi,
+                vit: character.vit,
+                int: character.int,
+                dex: character.dex,
+                luk: character.luk,
+            };
+            let updatedStats = { ...stats };
+            let remainingPoints = character.availablePoints;
+            let totalCost = 0;
+            // ─────────────────────────────────────────────────────
+            // Calcula o custo REAL de cada atributo.
+            //
+            // Exemplo:
+            //
+            // STR 10 → 11 = 2 pontos
+            // STR 11 → 12 = 3 pontos
+            // STR 12 → 13 = 3 pontos
+            //
+            // Não é mais 1 ponto por atributo.
+            // ─────────────────────────────────────────────────────
+            for (const stat of Object.keys(requestedStats)) {
+                const amount = requestedStats[stat];
+                if (amount <= 0) {
+                    continue;
+                }
+                const cost = statSystem.getIncreaseCost(updatedStats[stat], amount);
+                if (cost > remainingPoints) {
+                    throw new Error(`INSUFFICIENT_POINTS:${stat}:${cost}:${remainingPoints} `);
+                }
+                updatedStats[stat] += amount;
+                remainingPoints -= cost;
+                totalCost += cost;
+            }
+            // ─────────────────────────────────────────────────────
+            // Recalcula stats derivados
+            // ─────────────────────────────────────────────────────
+            const derived = statSystem.calculateDerivedStats(updatedStats, character.level);
+            // ─────────────────────────────────────────────────────
+            // HP / MP
+            //
+            // Se estava cheio antes da alteração, permanece cheio.
+            // Caso contrário, não ultrapassa o novo máximo.
+            // ─────────────────────────────────────────────────────
+            let newHp = character.hp;
+            let newMp = character.mp;
+            if (character.hp >= character.maxHp) {
+                newHp = derived.maxHp;
+            }
+            else {
+                newHp = Math.min(character.hp, derived.maxHp);
+            }
+            if (character.mp >= character.maxMp) {
+                newMp = derived.maxMp;
+            }
+            else {
+                newMp = Math.min(character.mp, derived.maxMp);
+            }
+            // ─────────────────────────────────────────────────────
+            // Persiste tudo atomicamente
+            // ─────────────────────────────────────────────────────
+            const updatedCharacter = await tx.character.update({
+                where: {
+                    id: character.id,
+                },
+                data: {
+                    str: updatedStats.str,
+                    agi: updatedStats.agi,
+                    vit: updatedStats.vit,
+                    int: updatedStats.int,
+                    dex: updatedStats.dex,
+                    luk: updatedStats.luk,
+                    availablePoints: remainingPoints,
+                    hp: newHp,
+                    maxHp: derived.maxHp,
+                    mp: newMp,
+                    maxMp: derived.maxMp,
+                },
+            });
+            return {
+                character: updatedCharacter,
+                totalCost,
+                distributed: requestedStats,
+                derived,
+            };
+        });
+        // ───────────────────────────────────────────────────────
+        // Resposta
+        // ───────────────────────────────────────────────────────
+        const serializedCharacter = {
+            ...result.character,
+            baseExp: result.character.baseExp.toString(),
+            jobExp: result.character.jobExp.toString(),
+            gold: result.character.gold.toString(),
+        };
+        res.json({
+            message: 'Atributos distribuídos com sucesso',
+            cost: result.totalCost,
+            distributed: result.distributed,
+            derived: result.derived,
+            character: serializedCharacter,
+        });
+    }
+    catch (error) {
+        const message = error instanceof Error
+            ? error.message
+            : String(error);
+        // Personagem inexistente / não pertence à conta
+        if (message === 'CHARACTER_NOT_FOUND') {
+            res.status(404).json({
+                error: 'Personagem não encontrado',
+            });
+            return;
+        }
+        // Pontos insuficientes
+        if (message.startsWith('INSUFFICIENT_POINTS:')) {
+            const [, stat, required, available] = message.split(':');
+            res.status(400).json({
+                error: 'Pontos de atributo insuficientes',
+                attribute: stat,
+                required: Number(required),
+                available: Number(available),
+            });
+            return;
+        }
+        console.error('[CharacterRouter] Failed to distribute stats:', error);
+        res.status(500).json({
+            error: 'Erro ao distribuir atributos',
+        });
+    }
+});
+// ─────────────────────────────────────────────────────────────
+// DELETE /api/characters/:id
+// Deleta personagem
+// ─────────────────────────────────────────────────────────────
+router.delete('/:id', requireAuth, async (req, res) => {
+    try {
+        const accountId = req.accountId;
+        const character = await prisma.character.findFirst({
+            where: {
+                id: req.params.id,
+                accountId,
+            },
+        });
+        if (!character) {
+            res.status(404).json({
+                error: 'Personagem não encontrado',
+            });
+            return;
+        }
+        await prisma.character.delete({
+            where: {
+                id: req.params.id,
+            },
+        });
+        res.json({
+            message: 'Personagem deletado',
+        });
+    }
+    catch (error) {
+        console.error('[CharacterRouter] Failed to delete character:', error);
+        res.status(500).json({
+            error: 'Erro ao deletar personagem',
+        });
+    }
 });
 export default router;

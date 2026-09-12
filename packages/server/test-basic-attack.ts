@@ -374,9 +374,9 @@ const normalDefenseResult = calculateDefenseReduction(
 console.log("\n=== TESTE 8 — Renewal DEF normal ===");
 console.table(normalDefenseResult);
 
-if (normalDefenseResult.effectiveDef !== 286.9) {
+if (normalDefenseResult.effectiveDef !== 286) {
     throw new Error(
-        `DEF normal incorreta: esperado 286.9, recebido ${normalDefenseResult.effectiveDef}`,
+        `DEF normal incorreta: esperado 286, recebido ${normalDefenseResult.effectiveDef}`,
     );
 }
 
@@ -426,14 +426,14 @@ if (piercingDefenseResult.effectiveDef !== 366) {
 
 console.log("TESTE 10 PASSOU");
 
-const postDefenseNormalResult = calculatePostDefenseDamage(286.9);
+const postDefenseNormalResult = calculatePostDefenseDamage(286);
 
 console.log("\n=== TESTE 11 — Post-DEF normal ===");
 console.table(postDefenseNormalResult);
 
-if (postDefenseNormalResult.damage !== 286.9) {
+if (postDefenseNormalResult.damage !== 286) {
     throw new Error(
-        `Post-DEF incorreto: esperado 286.9, recebido ${postDefenseNormalResult.damage}`,
+        `Post-DEF incorreto: esperado 286, recebido ${postDefenseNormalResult.damage}`,
     );
 }
 

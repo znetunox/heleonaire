@@ -56,16 +56,17 @@ function evaluateExpression(expression, knownValues) {
     if (!tokens || tokens.length === 0) {
         return undefined;
     }
+    const tokenList = tokens;
     let position = 0;
     function parseExpression() {
         let value = parseTerm();
         if (value === undefined) {
             return undefined;
         }
-        while (position < tokens.length &&
-            (tokens[position] === "+" ||
-                tokens[position] === "-")) {
-            const operator = tokens[position++];
+        while (position < tokenList.length &&
+            (tokenList[position] === "+" ||
+                tokenList[position] === "-")) {
+            const operator = tokenList[position++];
             const right = parseTerm();
             if (right === undefined) {
                 return undefined;
@@ -84,11 +85,11 @@ function evaluateExpression(expression, knownValues) {
         if (value === undefined) {
             return undefined;
         }
-        while (position < tokens.length &&
-            (tokens[position] === "*" ||
-                tokens[position] === "/" ||
-                tokens[position] === "%")) {
-            const operator = tokens[position++];
+        while (position < tokenList.length &&
+            (tokenList[position] === "*" ||
+                tokenList[position] === "/" ||
+                tokenList[position] === "%")) {
+            const operator = tokenList[position++];
             const right = parseFactor();
             if (right === undefined) {
                 return undefined;
@@ -112,10 +113,10 @@ function evaluateExpression(expression, knownValues) {
         return value;
     }
     function parseFactor() {
-        if (position >= tokens.length) {
+        if (position >= tokenList.length) {
             return undefined;
         }
-        const token = tokens[position];
+        const token = tokenList[position];
         if (token === "+") {
             position++;
             return parseFactor();
@@ -131,8 +132,8 @@ function evaluateExpression(expression, knownValues) {
         if (token === "(") {
             position++;
             const value = parseExpression();
-            if (position >= tokens.length ||
-                tokens[position] !== ")") {
+            if (position >= tokenList.length ||
+                tokenList[position] !== ")") {
                 return undefined;
             }
             position++;

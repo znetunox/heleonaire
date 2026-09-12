@@ -1,19 +1,66 @@
 import { resolveYaml } from "../importResolver";
 import { normalizeJobName } from "../jobName";
 /**
- * Convert the raw Inherit field from rAthena into a normalized
- * list of job names.
+ * ============================================================
+ * HELPERS
+ * ============================================================
+ */
+/**
+ * Normalize a skill name.
  *
- * rAthena format:
+ * rAthena uses AegisName-style identifiers.
+ *
+ * Example:
+ *
+ * "sm_bash" -> "SM_BASH"
+ */
+function normalizeSkillName(name) {
+    return name.trim().toUpperCase();
+}
+/**
+ * Parse numeric YAML values safely.
+ */
+function parseNumber(value) {
+    if (typeof value === "number" &&
+        Number.isFinite(value)) {
+        return Math.trunc(value);
+    }
+    if (typeof value === "string") {
+        const parsed = Number(value);
+        if (Number.isFinite(parsed)) {
+            return Math.trunc(parsed);
+        }
+    }
+    return undefined;
+}
+/**
+ * Parse YAML boolean values.
+ */
+function parseBoolean(value) {
+    if (typeof value === "boolean") {
+        return value;
+    }
+    if (typeof value === "string") {
+        return (value.trim().toLowerCase() ===
+            "true");
+    }
+    return false;
+}
+/**
+ * ============================================================
+ * INHERITANCE
+ * ============================================================
+ */
+/**
+ * Parse:
  *
  * Inherit:
- *   Novice: true
- *   Swordman: true
- *
- * We only consider entries whose value is truthy.
+ *   NOVICE: true
+ *   SWORDMAN: true
  */
 function parseInheritance(value) {
-    if (!value || typeof value !== "object") {
+    if (!value ||
+        typeof value !== "object") {
         return [];
     }
     const inherit = value;
@@ -27,17 +74,114 @@ function parseInheritance(value) {
     return result;
 }
 /**
- * Parse rAthena skill_tree.yml.
+ * ============================================================
+ * REQUIREMENTS
+ * ============================================================
+ */
+/**
+ * Parse skill prerequisites.
  *
- * Important:
+ * Example:
  *
- * This parser does NOT attempt to determine:
+ * Requires:
+ *   - Name: KN_PIERCE
+ *     Level: 5
+ *   - Name: KN_SPEARMASTERY
+ *     Level: 10
+ */
+function parseRequirements(value) {
+    if (!Array.isArray(value)) {
+        return [];
+    }
+    const result = [];
+    for (const raw of value) {
+        if (!raw ||
+            typeof raw !== "object") {
+            continue;
+        }
+        const requirement = raw;
+        if (typeof requirement.Name !==
+            "string" ||
+            requirement.Name.trim().length === 0) {
+            continue;
+        }
+        const level = parseNumber(requirement.Level);
+        if (level === undefined) {
+            console.warn(`[rAthena] Skill requirement without level: ${requirement.Name}`);
+            continue;
+        }
+        result.push({
+            name: normalizeSkillName(requirement.Name),
+            level,
+        });
+    }
+    return result;
+}
+/**
+ * ============================================================
+ * TREE SKILLS
+ * ============================================================
+ */
+/**
+ * Parse one Tree skill.
+ */
+function parseTreeSkill(value) {
+    if (!value ||
+        typeof value !== "object") {
+        return undefined;
+    }
+    const raw = value;
+    if (typeof raw.Name !== "string" ||
+        raw.Name.trim().length === 0) {
+        return undefined;
+    }
+    const maxLevel = parseNumber(raw.MaxLevel) ?? 1;
+    const baseLevel = parseNumber(raw.BaseLevel);
+    const jobLevel = parseNumber(raw.JobLevel);
+    return {
+        name: normalizeSkillName(raw.Name),
+        maxLevel,
+        ...(baseLevel !== undefined
+            ? { baseLevel }
+            : {}),
+        ...(jobLevel !== undefined
+            ? { jobLevel }
+            : {}),
+        exclude: parseBoolean(raw.Exclude),
+        requires: parseRequirements(raw.Requires),
+    };
+}
+/**
+ * Parse the Tree array of a job.
+ */
+function parseTree(value) {
+    if (!Array.isArray(value)) {
+        return [];
+    }
+    const result = [];
+    for (const rawSkill of value) {
+        const skill = parseTreeSkill(rawSkill);
+        if (!skill) {
+            console.warn("[rAthena] Invalid skill tree entry.");
+            continue;
+        }
+        result.push(skill);
+    }
+    return result;
+}
+/**
+ * ============================================================
+ * PARSER
+ * ============================================================
+ */
+/**
+ * Parse all skill tree definitions from rAthena.
  *
- *   parentId
- *   baseJobId
- *   jobLevel
+ * This reads:
  *
- * It only reads the skill-tree inheritance defined by rAthena.
+ * Job
+ * Inherit
+ * Tree
  */
 export function parseSkillTreeDefinitions() {
     console.log("[rAthena] Reading skill_tree.yml...");
@@ -61,15 +205,17 @@ export function parseSkillTreeDefinitions() {
         }
         const job = normalizeJobName(entry.Job);
         const inherits = parseInheritance(entry.Inherit);
+        const skills = parseTree(entry.Tree);
         jobs.push({
             job,
             inherits,
+            skills,
         });
     }
     return jobs;
 }
 /**
- * Parse and validate skill-tree jobs.
+ * Parse and deduplicate skill tree jobs.
  */
 export function parseSkillTree() {
     const parsed = parseSkillTreeDefinitions();
@@ -86,8 +232,137 @@ export function parseSkillTree() {
     const jobs = Array.from(uniqueJobs.values());
     console.log(`[rAthena] skill_tree jobs parsed: ${jobs.length}`);
     console.log(`[rAthena] skill_tree duplicates: ${duplicates}`);
+    const totalSkills = jobs.reduce((total, job) => total + job.skills.length, 0);
+    console.log(`[rAthena] explicit skill tree entries: ${totalSkills}`);
     return {
         jobs,
         duplicates,
     };
+}
+/**
+ * ============================================================
+ * EFFECTIVE SKILL TREE
+ * ============================================================
+ */
+/**
+ * Resolve the final/effective skill tree for one job.
+ *
+ * Example:
+ *
+ * resolveEffectiveSkillTree(
+ *   "KNIGHT",
+ *   jobs,
+ * )
+ *
+ * produces the effective combination of:
+ *
+ * NOVICE
+ * SWORDMAN
+ * KNIGHT
+ *
+ * respecting rAthena's:
+ *
+ * - Inherit
+ * - Exclude
+ * - MaxLevel: 0
+ * - skill overrides
+ *
+ * IMPORTANT:
+ *
+ * Inherit describes skill inheritance.
+ * It is not the same thing as the custom
+ * Heleonaire GameClass.parentId hierarchy.
+ */
+export function resolveEffectiveSkillTree(jobName, jobs) {
+    const normalizedJob = normalizeJobName(jobName);
+    const jobMap = new Map();
+    for (const job of jobs) {
+        jobMap.set(job.job, job);
+    }
+    const job = jobMap.get(normalizedJob);
+    if (!job) {
+        throw new Error(`Skill tree job not found: ${normalizedJob}`);
+    }
+    /**
+     * Final effective skills.
+     *
+     * Key:
+     *   skill AegisName
+     */
+    const effective = new Map();
+    /**
+     * Apply the Tree belonging to an inherited job.
+     */
+    const applyInheritedTree = (sourceJob) => {
+        for (const skill of sourceJob.skills) {
+            /**
+             * rAthena:
+             *
+             * Exclude means this skill exists in the
+             * source job but must not be inherited.
+             */
+            if (skill.exclude) {
+                continue;
+            }
+            /**
+             * MaxLevel 0 removes the skill.
+             */
+            if (skill.maxLevel <= 0) {
+                effective.delete(skill.name);
+                continue;
+            }
+            effective.set(skill.name, {
+                ...skill,
+                sourceJob: sourceJob.job,
+            });
+        }
+    };
+    /**
+     * rAthena's Inherit list is already an
+     * explicit inheritance chain.
+     *
+     * Example:
+     *
+     * DRAGON_KNIGHT:
+     *
+     * NOVICE
+     * SWORDMAN
+     * KNIGHT
+     * LORD_KNIGHT
+     * RUNE_KNIGHT
+     * RUNE_KNIGHT_T
+     */
+    for (const inheritedJobName of job.inherits) {
+        const inheritedJob = jobMap.get(inheritedJobName);
+        if (!inheritedJob) {
+            throw new Error(`Skill tree inheritance target not found: ${inheritedJobName} -> ${normalizedJob}`);
+        }
+        applyInheritedTree(inheritedJob);
+    }
+    /**
+     * Finally apply the current job's own Tree.
+     *
+     * IMPORTANT:
+     *
+     * Exclude on the current job does NOT remove
+     * the skill from the current job.
+     *
+     * It only matters when descendants inherit
+     * this job's Tree.
+     */
+    for (const skill of job.skills) {
+        /**
+         * MaxLevel 0 explicitly removes
+         * a previously inherited skill.
+         */
+        if (skill.maxLevel <= 0) {
+            effective.delete(skill.name);
+            continue;
+        }
+        effective.set(skill.name, {
+            ...skill,
+            sourceJob: job.job,
+        });
+    }
+    return Array.from(effective.values());
 }

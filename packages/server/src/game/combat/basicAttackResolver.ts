@@ -50,10 +50,13 @@ export function resolveBasicAttackComponents(
                         attacker.weaponAtkRate,
 
                     weaponAtkScriptBonus:
-                        attacker.weapon.weaponAtkBonus,
+                        (attacker.weapon.weaponAtkBonus ?? 0) +
+                        (attacker.weaponAtkByType?.[
+                            attacker.weapon.weaponType
+                        ] ?? 0),
 
                     weaponAtk2ScriptBonus:
-                        attacker.weapon.weaponAtk2Bonus,
+                        attacker.weapon.weaponAtk2Bonus ?? 0,
 
                     randomValue:
                         options.randomValue ?? 0.5,
@@ -62,8 +65,8 @@ export function resolveBasicAttackComponents(
                         options.overRefineRandomValue ?? 0.5,
 
                     weaponDamageRate:
-                        attacker.weaponDamageRateByType[
-                        attacker.weapon.weaponType
+                        attacker.weaponDamageRateByType?.[
+                            attacker.weapon.weaponType
                         ] ?? 0,
 
                     sizeFixRate,
