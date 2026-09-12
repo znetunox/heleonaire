@@ -147,14 +147,7 @@ export class CombatStateBuilder {
         };
 
         const derived = this.statSystem.calculateDerivedStats(
-            {
-                str: character.str,
-                agi: character.agi,
-                vit: character.vit,
-                int: character.int,
-                dex: character.dex,
-                luk: character.luk,
-            },
+            stats,
             character.level,
             {
                 ...statSystemModifiers,

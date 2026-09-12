@@ -1,6 +1,7 @@
 import type {
     CharacterStatValues,
 } from "../stats/StatSystem";
+import type { RathenaElement } from "../../data/rathena/parsers/attrFixParser";
 
 export interface CombatStats {
     level: number;
@@ -188,28 +189,15 @@ export interface AttackComponents {
 export interface AttackContext {
     attacker: PlayerCombatSnapshot;
     target: MobCombatSnapshot;
-
-    /**
-     * Components are supplied by the attack-resolution stage.
-     */
     components: AttackComponents;
 
-    /**
-     * Final calculated skill ratio.
-     *
-     * Normal weapon attack = 100.
-     */
+    attackElement: RathenaElement;
+    targetElement: RathenaElement;
+    targetElementLevel: number;
+
     skillRatio: number;
-
-    /**
-     * Final calculated additive skill constant.
-     *
-     * Normal weapon attack = 0.
-     */
     skillConstant: number;
-
     skillId: number;
-
     isCritical: boolean;
     usesAmmo: boolean;
 }

@@ -133,6 +133,10 @@ export function calculateWeaponAttack(
         refineBonus +
         normalizedWeaponAtk2ScriptBonus;
 
+    const totalWeaponAttack =
+        weaponAtk +
+        weaponAtk2;
+
     /*
      * Renewal:
      *
@@ -196,7 +200,7 @@ export function calculateWeaponAttack(
         Math.max(
             0,
             Math.floor(
-                weaponAtk -
+                totalWeaponAttack -
                 variance +
                 baseStatBonus,
             ),
@@ -206,7 +210,7 @@ export function calculateWeaponAttack(
         Math.min(
             65535,
             Math.floor(
-                weaponAtk +
+                totalWeaponAttack +
                 variance +
                 baseStatBonus,
             ),
