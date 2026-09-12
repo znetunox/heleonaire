@@ -45,10 +45,28 @@ export function resolveBasicAttackComponents(
             ? calculateWeaponAttack(
                 attacker.combatStats,
                 attacker.weapon,
-                options.randomValue ?? 0.5,
-                options.overRefineRandomValue ?? 0.5,
-                attacker.weaponDamageRate,
-                sizeFixRate,
+                {
+                    weaponAtkBonus:
+                        attacker.weaponAtkByType[
+                        attacker.weapon.weaponType
+                        ] ?? 0,
+
+                    weaponAtkRate:
+                        attacker.weaponAtkRate,
+
+                    randomValue:
+                        options.randomValue ?? 0.5,
+
+                    overRefineRandomValue:
+                        options.overRefineRandomValue ?? 0.5,
+
+                    weaponDamageRate:
+                        attacker.weaponDamageRateByType[
+                        attacker.weapon.weaponType
+                        ] ?? 0,
+
+                    sizeFixRate,
+                },
             ).value
             : 0;
 

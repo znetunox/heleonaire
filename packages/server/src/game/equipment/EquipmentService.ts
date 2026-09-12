@@ -1,5 +1,9 @@
 import prisma from "../../db/prisma";
 
+import {
+    itemScriptInterpreter,
+} from "../items/ItemScriptInterpreter";
+
 const VALID_LOCATIONS = new Set([
     "Ammo",
     "Armor",
@@ -39,6 +43,14 @@ type EquipmentLocation = string;
 interface ParsedLocation {
     slot: EquipmentLocation;
     occupies: EquipmentLocation[];
+}
+
+interface EquippedItemInstance {
+    type: string;
+    attack: number | null;
+    magicAttack: number | null;
+    defense: number | null;
+    script: string | null;
 }
 
 export class EquipmentService {
@@ -237,13 +249,6 @@ export class EquipmentService {
             /**
              * Como locations pode conter múltiplos slots,
              * criamos uma linha para cada location verdadeira.
-             *
-             * Ex:
-             *
-             * Munak_Turban
-             * Head_Low
-             * Head_Mid
-             * Head_Top
              */
             for (const location of locations) {
 
@@ -290,9 +295,12 @@ export class EquipmentService {
      * Remove o equipamento de um slot.
      *
      * Se o item ocupa múltiplos slots, todas as linhas
-     * daquele item são removidas.
+     * daquela mesma instância física são removidas.
      */
-    async unequipItem(characterId: string, slot: string) {
+    async unequipItem(
+        characterId: string,
+        slot: string,
+    ) {
         if (!characterId) {
             throw new Error("Character ID is required");
         }
@@ -301,12 +309,13 @@ export class EquipmentService {
             throw new Error("Equipment slot is required");
         }
 
-        const equipment = await prisma.characterEquipment.findFirst({
-            where: {
-                characterId,
-                slot,
-            },
-        });
+        const equipment =
+            await prisma.characterEquipment.findFirst({
+                where: {
+                    characterId,
+                    slot,
+                },
+            });
 
         if (!equipment) {
             throw new Error("No equipment found in this slot");
@@ -392,35 +401,36 @@ export class EquipmentService {
             throw new Error("Character ID is required");
         }
 
-        const equipment = await prisma.characterEquipment.findMany({
-            where: {
-                characterId,
-                slot: {
-                    in: [
-                        "Both_Hand",
-                        "Right_Hand",
-                    ],
-                },
-            },
-            select: {
-                itemId: true,
-                slot: true,
-                inventoryId: true,
-                refineLevel: true,
-                item: {
-                    select: {
-                        id: true,
-                        aegisName: true,
-                        name: true,
-                        type: true,
-                        subType: true,
-                        attack: true,
-                        weaponLevel: true,
-                        range: true,
+        const equipment =
+            await prisma.characterEquipment.findMany({
+                where: {
+                    characterId,
+                    slot: {
+                        in: [
+                            "Both_Hand",
+                            "Right_Hand",
+                        ],
                     },
                 },
-            },
-        });
+                select: {
+                    itemId: true,
+                    slot: true,
+                    inventoryId: true,
+                    refineLevel: true,
+                    item: {
+                        select: {
+                            id: true,
+                            aegisName: true,
+                            name: true,
+                            type: true,
+                            subType: true,
+                            attack: true,
+                            weaponLevel: true,
+                            range: true,
+                        },
+                    },
+                },
+            });
 
         const weaponEquipment =
             equipment.find(
@@ -543,49 +553,71 @@ export class EquipmentService {
     }
 
     /**
- * Calcula os modificadores numéricos fornecidos pelo
- * equipamento atualmente equipado.
- *
- * Item.attack       -> ATK
- * Item.magicAttack  -> MATK
- * Item.defense      -> DEF
- *
- * Um mesmo item pode ocupar múltiplos slots em
- * CharacterEquipment. Nesse caso, seus atributos
- * devem ser contabilizados apenas uma vez.
- */
+     * Calcula os modificadores numéricos fornecidos pelo
+     * equipamento atualmente equipado.
+     *
+     * Atributos físicos estáticos:
+     *
+     * Item.attack      -> weaponAtk / equipAtk
+     * Item.magicAttack -> equipMatk
+     * Item.defense     -> armorDef
+     *
+     * Scripts permanentes do Item.script:
+     *
+     * bBaseAtk          -> equipAtk
+     * bAtkRate          -> atkRate
+     * bWeaponAtkRate    -> weaponAtkRate
+     * bWeaponDamageRate -> weaponDamageRate
+     * bPAtk             -> patk
+     * bPAtkRate         -> patkRate
+     * bWeaponAtk        -> weaponAtkByType
+     *
+     * bAtk e bAtk2 NÃO são aplicados aqui ainda.
+     *
+     * Isso é intencional: a semântica exata desses dois
+     * modificadores ainda está sendo auditada antes de
+     * associá-los a statusAtk/masteryAtk/equipAtk.
+     *
+     * Um mesmo item pode ocupar múltiplos slots em
+     * CharacterEquipment. Nesse caso, seus atributos e seu
+     * script são contabilizados apenas uma vez.
+     */
     async getStatModifiers(characterId: string) {
         if (!characterId) {
             throw new Error("Character ID is required");
         }
 
-        const equipment = await prisma.characterEquipment.findMany({
-            where: {
-                characterId,
-            },
-            select: {
-                itemId: true,
-                inventoryId: true,
-                item: {
-                    select: {
-                        type: true,
-                        attack: true,
-                        magicAttack: true,
-                        defense: true,
+        const equipment =
+            await prisma.characterEquipment.findMany({
+                where: {
+                    characterId,
+                },
+                select: {
+                    itemId: true,
+                    inventoryId: true,
+                    item: {
+                        select: {
+                            type: true,
+                            attack: true,
+                            magicAttack: true,
+                            defense: true,
+                            script: true,
+                        },
                     },
                 },
-            },
-        });
+            });
 
-        const equippedInstances = new Map<
-            string,
-            {
-                type: string;
-                attack: number | null;
-                magicAttack: number | null;
-                defense: number | null;
-            }
-        >();
+        /**
+         * Deduplicação por instância física.
+         *
+         * inventoryId identifica corretamente duas cópias
+         * diferentes do mesmo item.
+         *
+         * Equipamentos antigos sem inventoryId continuam
+         * utilizando itemId como fallback.
+         */
+        const equippedInstances =
+            new Map<string, EquippedItemInstance>();
 
         for (const equipped of equipment) {
             const key =
@@ -606,8 +638,45 @@ export class EquipmentService {
         let armorDef = 0;
         let ammoAtk = 0;
 
+        /**
+         * Modificadores provenientes de Item.script.
+         */
+        let atkRate = 0;
+        let weaponAtkRate = 0;
+        const weaponDamageRateByType =
+            new Map<string, number>();
+        let patk = 0;
+        let patkRate = 0;
+
+        /**
+         * bWeaponAtk,w,n
+         *
+         * Deve permanecer separado por tipo de arma.
+         *
+         * Exemplo:
+         *
+         * {
+         *     Sword: 20,
+         *     Dagger: 10
+         * }
+         *
+         * Não podemos somar isso globalmente porque o bônus
+         * só deve ser aplicado quando a arma correspondente
+         * estiver equipada.
+         */
+        const weaponAtkByType =
+            new Map<string, number>();
+
         for (const item of equippedInstances.values()) {
+
+            /*
+             * --------------------------------------------------
+             * Atributos estáticos do Item
+             * --------------------------------------------------
+             */
+
             if (item.type === "Weapon") {
+
                 if (item.attack !== null) {
                     weaponAtk += item.attack;
                 }
@@ -616,35 +685,188 @@ export class EquipmentService {
                     equipMatk += item.magicAttack;
                 }
 
-                continue;
-            }
+            } else if (item.type === "Ammo") {
 
-            if (item.type === "Ammo") {
                 if (item.attack !== null) {
                     ammoAtk += item.attack;
                 }
 
-                continue;
-            }
+            } else if (item.type === "Armor") {
 
-            if (item.type === "Armor") {
                 if (item.defense !== null) {
                     armorDef += item.defense;
                 }
 
+            } else {
+
+                if (item.attack !== null) {
+                    equipAtk += item.attack;
+                }
+
+                if (item.magicAttack !== null) {
+                    equipMatk += item.magicAttack;
+                }
+
+                if (item.defense !== null) {
+                    armorDef += item.defense;
+                }
+            }
+
+            /*
+             * --------------------------------------------------
+             * Item.script
+             * --------------------------------------------------
+             *
+             * O script é interpretado uma única vez por
+             * instância física.
+             */
+            if (!item.script) {
                 continue;
             }
 
-            if (item.attack !== null) {
-                equipAtk += item.attack;
-            }
+            const effects =
+                itemScriptInterpreter.interpret(
+                    item.script,
+                );
 
-            if (item.magicAttack !== null) {
-                equipMatk += item.magicAttack;
-            }
+            for (const effect of effects) {
 
-            if (item.defense !== null) {
-                armorDef += item.defense;
+                switch (effect.type) {
+
+                    /**
+                     * bBaseAtk
+                     *
+                     * EATK/equipment attack.
+                     */
+                    case "baseAtk":
+                        equipAtk += effect.value;
+                        break;
+
+                    /**
+                     * bAtkRate
+                     *
+                     * Percentual aplicado posteriormente sobre:
+                     *
+                     *     weaponAtk + equipAtk
+                     *
+                     * Não aplicar aqui sobre weapon.attack.
+                     */
+                    case "atkRate":
+                        atkRate += effect.value;
+                        break;
+
+                    /**
+                     * bWeaponAtkRate
+                     *
+                     * Modificador da WATK base.
+                     *
+                     * O cálculo efetivo ocorre em
+                     * calculateWeaponAttack().
+                     */
+                    case "weaponAtkRate":
+                        weaponAtkRate += effect.value;
+                        break;
+
+                    /**
+                     * bWeaponDamageRate
+                     *
+                     * Atualmente mantemos o acumulador escalar
+                     * porque PlayerCombatSnapshot ainda possui
+                     * weaponDamageRate escalar.
+                     *
+                     * A modelagem definitiva deverá ser por
+                     * tipo de arma.
+                     */
+                    case "weaponDamageRate": {
+                        const weaponType =
+                            effect.weaponType;
+
+                        if (!weaponType) {
+                            break;
+                        }
+
+                        const current =
+                            weaponDamageRateByType.get(
+                                weaponType,
+                            ) ?? 0;
+
+                        weaponDamageRateByType.set(
+                            weaponType,
+                            current + effect.value,
+                        );
+
+                        break;
+                    }
+
+                    /**
+                     * bPAtk
+                     *
+                     * P.ATK flat.
+                     *
+                     * Ainda será integrado ao estágio correto
+                     * do cálculo de P.ATK.
+                     */
+                    case "patk":
+                        patk += effect.value;
+                        break;
+
+                    /**
+                     * bPAtkRate
+                     *
+                     * P.ATK percentual.
+                     *
+                     * Ainda será integrado ao estágio correto
+                     * do cálculo de P.ATK.
+                     */
+                    case "patkRate":
+                        patkRate += effect.value;
+                        break;
+
+                    /**
+                     * bWeaponAtk,w,n
+                     *
+                     * Mantemos por tipo de arma.
+                     *
+                     * Não deve ser incorporado a weaponAtk global.
+                     */
+                    case "weaponAtkByType": {
+                        const weaponType =
+                            effect.weaponType;
+
+                        if (!weaponType) {
+                            break;
+                        }
+
+                        const current =
+                            weaponAtkByType.get(
+                                weaponType,
+                            ) ?? 0;
+
+                        weaponAtkByType.set(
+                            weaponType,
+                            current + effect.value,
+                        );
+
+                        break;
+                    }
+
+                    /**
+                     * bAtk
+                     * bAtk2
+                     *
+                     * Deliberadamente não aplicados ainda.
+                     *
+                     * A semântica deles precisa ser fechada
+                     * contra status.cpp/battle.cpp antes de
+                     * escolher o componente correto.
+                     */
+                    case "weaponAtk":
+                    case "weaponAtk2":
+                        break;
+
+                    default:
+                        break;
+                }
             }
         }
 
@@ -654,6 +876,21 @@ export class EquipmentService {
             equipMatk,
             armorDef,
             ammoAtk,
+
+            atkRate,
+            weaponAtkRate,
+            weaponDamageRateByType:
+                Object.fromEntries(
+                    weaponDamageRateByType.entries(),
+                ),
+
+            patk,
+            patkRate,
+
+            weaponAtkByType:
+                Object.fromEntries(
+                    weaponAtkByType.entries(),
+                ),
         };
     }
 
@@ -685,21 +922,16 @@ export class EquipmentService {
     /**
      * Validação inicial dos jobs.
      *
-     * IMPORTANTE:
-     * item.jobs continua sendo o JSON original do rAthena.
+     * Item.jobs continua sendo o JSON original do rAthena.
      *
-     * Nesta primeira versão fazemos somente comparação
-     * case-insensitive do jobKey e nomes presentes no JSON.
-     *
-     * A hierarquia completa de GameClass será adicionada
-     * quando fecharmos a regra de herança de jobs.
+     * Nesta primeira versão fazemos comparação
+     * case-insensitive respeitando a hierarquia de GameClass.
      */
     private async validateJob(
         characterJobKey: string,
         jobsJson: string | null,
     ): Promise<void> {
 
-        // Item sem restrição de job.
         if (!jobsJson) {
             return;
         }
@@ -723,17 +955,6 @@ export class EquipmentService {
         const normalizedJobKey =
             characterJobKey.trim().toLowerCase();
 
-        /**
-         * Primeiro verificamos as restrições explícitas.
-         *
-         * Isso é importante para casos como:
-         *
-         * {
-         *   "All": true,
-         *   "Novice": false,
-         *   "SuperNovice": false
-         * }
-         */
         const explicitFalseJobs = entries
             .filter(([, value]) => value === false)
             .map(([job]) => job);
@@ -750,12 +971,6 @@ export class EquipmentService {
             );
         }
 
-        /**
-         * All=true significa que o item não possui uma
-         * whitelist restritiva.
-         *
-         * As exceções false já foram avaliadas acima.
-         */
         const allEntry = entries.find(
             ([job]) =>
                 job.trim().toLowerCase() === "all",
@@ -765,10 +980,6 @@ export class EquipmentService {
             return;
         }
 
-        /**
-         * Sem All=true, precisamos encontrar o job do
-         * personagem na árvore de GameClass.
-         */
         const allowedJobs = entries
             .filter(([, value]) => value === true)
             .map(([job]) => job)
@@ -795,6 +1006,7 @@ export class EquipmentService {
             );
         }
     }
+
     private async characterMatchesJobHierarchy(
         characterJobKey: string,
         targetJobs: string[],
@@ -823,22 +1035,27 @@ export class EquipmentService {
 
             visited.add(normalizedCurrent);
 
-            if (normalizedTargets.has(normalizedCurrent)) {
+            if (
+                normalizedTargets.has(
+                    normalizedCurrent,
+                )
+            ) {
                 return true;
             }
 
             const gameClass: {
                 aegisName: string;
                 parentId: number | null;
-            } | null = await prisma.gameClass.findUnique({
-                where: {
-                    aegisName: currentJobKey,
-                },
-                select: {
-                    aegisName: true,
-                    parentId: true,
-                },
-            });
+            } | null =
+                await prisma.gameClass.findUnique({
+                    where: {
+                        aegisName: currentJobKey,
+                    },
+                    select: {
+                        aegisName: true,
+                        parentId: true,
+                    },
+                });
 
             if (!gameClass) {
                 return false;
@@ -850,20 +1067,22 @@ export class EquipmentService {
 
             const parent: {
                 aegisName: string;
-            } | null = await prisma.gameClass.findUnique({
-                where: {
-                    id: gameClass.parentId,
-                },
-                select: {
-                    aegisName: true,
-                },
-            });
+            } | null =
+                await prisma.gameClass.findUnique({
+                    where: {
+                        id: gameClass.parentId,
+                    },
+                    select: {
+                        aegisName: true,
+                    },
+                });
 
             if (!parent) {
                 return false;
             }
 
-            currentJobKey = parent.aegisName;
+            currentJobKey =
+                parent.aegisName;
         }
 
         return false;

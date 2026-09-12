@@ -62,38 +62,34 @@ export class CombatStateBuilder {
          * 1. Status modifiers
          * ---------------------------------------------------------
          *
-         * Important Renewal semantic:
+         * Importante:
          *
-         *   bBaseAtk
-         *       -> EATK
+         * bBaseAtk NÃO é BATK.
          *
-         * Therefore modifiers.atk MUST NOT enter BATK.
+         * BATK/statusAtk e EATK/equipAtk permanecem separados.
          */
         const statusModifiers =
             this.statuses.getStatModifiers(
                 character.id,
             );
 
-
-
         /*
          * ---------------------------------------------------------
          * 2. Equipment state
          * ---------------------------------------------------------
          */
+        const equipmentService =
+            this.getEquipmentService();
+
         const equipmentModifiers =
-            await this
-                .getEquipmentService()
-                .getStatModifiers(
-                    character.id,
-                );
+            await equipmentService.getStatModifiers(
+                character.id,
+            );
 
         const weapon =
-            await this
-                .getEquipmentService()
-                .getWeaponContext(
-                    character.id,
-                );
+            await equipmentService.getWeaponContext(
+                character.id,
+            );
 
         /*
          * ---------------------------------------------------------
@@ -131,21 +127,19 @@ export class CombatStateBuilder {
          * 4. Derived Renewal stats
          * ---------------------------------------------------------
          *
-         * We deliberately remove `atk` before calling
-         * StatSystem.calculateDerivedStats().
+         * `atk` continua zerado aqui.
          *
-         * In Renewal:
+         * Não devemos colocar bBaseAtk em `atk`, porque:
          *
-         *   BATK =
-         *       STR
-         *     + floor(DEX / 5)
-         *     + floor(LUK / 3)
-         *     + floor(Level / 4)
-         *     + 5 * POW
+         *     bBaseAtk -> EATK
          *
-         * The current project does not yet have POW.
+         * e não:
          *
-         * `bBaseAtk` is EATK and therefore belongs outside BATK.
+         *     bBaseAtk -> BATK
+         *
+         * Também não colocamos ainda bPAtk/bPAtkRate no
+         * StatSystem porque o StatSystem atual não possui
+         * suporte específico para P.ATK percentual.
          */
         const statSystemModifiers: StatusStatModifiers = {
             ...statusModifiers,
@@ -167,7 +161,7 @@ export class CombatStateBuilder {
                     ...statSystemModifiers,
 
                     /*
-                     * Equipment DEF is hard DEF / DEF1.
+                     * Equipment DEF é DEF1 / hard DEF.
                      */
                     defense:
                         (statusModifiers.defense ?? 0) +
@@ -179,23 +173,28 @@ export class CombatStateBuilder {
          * ---------------------------------------------------------
          * 5. Combat stats
          * ---------------------------------------------------------
-         *
-         * These fields are the current project's combat snapshot.
-         *
-         * PATK/RES/MRES/POW/CON/etc. will be expanded when those
-         * Renewal status fields are introduced into Character and
-         * StatSystem.
          */
         const combatStats: CombatStats = {
             level:
                 character.level,
 
-            str: stats.str,
-            agi: stats.agi,
-            vit: stats.vit,
-            int: stats.int,
-            dex: stats.dex,
-            luk: stats.luk,
+            str:
+                stats.str,
+
+            agi:
+                stats.agi,
+
+            vit:
+                stats.vit,
+
+            int:
+                stats.int,
+
+            dex:
+                stats.dex,
+
+            luk:
+                stats.luk,
 
             batk:
                 derived.batk,
@@ -203,6 +202,12 @@ export class CombatStateBuilder {
             statusAtk:
                 derived.statusAtk,
 
+            /*
+             * P.ATK permanece no valor derivado atual.
+             *
+             * bPAtk e bPAtkRate serão aplicados em uma etapa
+             * própria quando fecharmos o modelo de P.ATK.
+             */
             patk:
                 derived.patk,
 
@@ -212,7 +217,8 @@ export class CombatStateBuilder {
             def2:
                 derived.def2,
 
-            res: 0,
+            res:
+                0,
 
             mdef1:
                 derived.mdef1,
@@ -235,22 +241,118 @@ export class CombatStateBuilder {
          * 6. EATK
          * ---------------------------------------------------------
          *
-         * Current supported sources:
+         * Fontes:
          *
-         *   status.atk
-         *   equipment.equipAtk
+         *   Item.attack
+         *       -> equipamento físico
          *
-         * Ammo is deliberately kept separate because rAthena only
-         * adds arrow/ammo ATK to equipAtk when the attack actually
-         * uses ammunition.
+         *   bBaseAtk
+         *       -> EATK
+         *
+         * `statusModifiers.atk` NÃO entra aqui.
          */
         const equipAtk =
-            (statusModifiers.atk ?? 0) +
             equipmentModifiers.equipAtk;
 
+        /*
+         * Ammo permanece separado.
+         *
+         * O uso efetivo do ammo será decidido no estágio
+         * de ataque que souber se a skill/basic attack usa
+         * munição.
+         */
         const ammoAtk =
             equipmentModifiers.ammoAtk;
 
+        /*
+         * ---------------------------------------------------------
+         * 7. Percentage attack modifiers
+         * ---------------------------------------------------------
+         *
+         * bAtkRate:
+         *
+         *     não é bWeaponAtkRate.
+         *
+         * Ele deve permanecer disponível para o estágio que
+         * calcula:
+         *
+         *     (weaponAtk + equipAtk) * atkRate / 100
+         *
+         * bWeaponAtkRate:
+         *
+         *     modifica WATK antes da variância da arma.
+         *
+         * Os dois podem existir simultaneamente em status e
+         * equipamento.
+         */
+        const atkRate =
+            (statusModifiers.atkRate ?? 0) +
+            (equipmentModifiers.atkRate ?? 0);
+
+        const weaponAtkRate =
+            (statusModifiers.weaponAtkRate ?? 0) +
+            (equipmentModifiers.weaponAtkRate ?? 0);
+
+        /*
+         * ---------------------------------------------------------
+         * 8. Weapon damage rate
+         * ---------------------------------------------------------
+         *
+         * Temporariamente continua escalar porque
+         * PlayerCombatSnapshot ainda usa:
+         *
+         *     weaponDamageRate: number
+         *
+         * A modelagem definitiva deverá ser por tipo de arma,
+         * porque rAthena bWeaponDamageRate possui dimensão de
+         * weapon type.
+         */
+        const weaponDamageRateByType: Record<string, number> = {
+            ...(equipmentModifiers.weaponDamageRateByType ?? {}),
+        };
+
+        for (const [
+            weaponType,
+            value,
+        ] of Object.entries(
+            equipmentModifiers.weaponDamageRateByType ?? {},
+        )) {
+            weaponDamageRateByType[weaponType] =
+                (weaponDamageRateByType[weaponType] ?? 0) +
+                value;
+        }
+
+        const weaponAtkByType: Record<string, number> = {
+            ...(equipmentModifiers.weaponAtkByType ?? {}),
+        };
+
+        /*
+         * ---------------------------------------------------------
+         * 9. P.ATK equipment modifiers
+         * ---------------------------------------------------------
+         *
+         * NÃO aplicamos matematicamente ainda.
+         *
+         * O EquipmentService já coleta:
+         *
+         *     bPAtk
+         *     bPAtkRate
+         *
+         * mas o CombatStats atual não possui esses campos e o
+         * StatSystem ainda retorna patk = 0.
+         *
+         * Portanto, não vamos esconder esses valores nem
+         * aplicá-los em lugar incorreto.
+         *
+         * A integração definitiva será feita quando o modelo
+         * de P.ATK for fechado.
+         */
+
+        /*
+         * ---------------------------------------------------------
+         * 10. Return snapshot
+         * ---------------------------------------------------------
+         */
         return {
             characterId:
                 character.id,
@@ -269,14 +371,13 @@ export class CombatStateBuilder {
 
             ammoAtk,
 
-            atkRate:
-                statusModifiers.atkRate ?? 0,
+            atkRate,
 
-            weaponAtkRate:
-                statusModifiers.weaponAtkRate ?? 0,
+            weaponAtkRate,
 
-            weaponDamageRate:
-                statusModifiers.weaponDamageRate ?? 0,
+            weaponDamageRateByType,
+
+            weaponAtkByType,
 
             weapon,
 
@@ -294,8 +395,8 @@ export class CombatStateBuilder {
          * Renewal mob derived combat stats
          * ---------------------------------------------------------
          *
-         * Mobs do not use the same HIT/FLEE/DEF2/MDEF2 formulas
-         * as player characters.
+         * Mobs não usam as mesmas fórmulas de HIT/FLEE/DEF2/MDEF2
+         * dos personagens.
          *
          * Renewal:
          *
@@ -303,9 +404,6 @@ export class CombatStateBuilder {
          *   FLEE = 100 + Level + AGI
          *   DEF2 = floor((Level + VIT) / 2)
          *   MDEF2 = floor((INT + Level) / 4)
-         *
-         * LUK does not participate in the generic mob HIT/FLEE
-         * formulas.
          */
 
         const def2 =
@@ -351,21 +449,18 @@ export class CombatStateBuilder {
                 mob.luk,
 
             /*
-             * These attack-side fields are not required when the mob
-             * is currently being used as the target of a player attack.
-             *
-             * They will be populated when the mob -> player combat
-             * pipeline is implemented.
+             * Esses campos de ataque serão preenchidos quando
+             * implementarmos o pipeline mob -> player.
              */
             batk: 0,
             statusAtk: 0,
             patk: 0,
 
             /*
-             * Renewal mob DB values:
+             * Renewal mob DB:
              *
-             * defense     -> hard DEF / DEF1
-             * resistance  -> RES
+             * defense -> DEF1
+             * resistance -> RES
              */
             def1:
                 mob.defense,

@@ -8,7 +8,12 @@ export interface WeaponAttackResult {
     max: number;
     value: number;
 
+    /**
+     * Effective wa.atk after bWeaponAtkRate,
+     * before normal refine (wa.atk2).
+     */
     ratedBaseAttack: number;
+
     variance: number;
     baseStatBonus: number;
     baseStat: number;
@@ -16,68 +21,109 @@ export interface WeaponAttackResult {
     overRefineDamage: number;
 }
 
+export interface WeaponAttackOptions {
+    weaponAtkBonus?: number;
+    weaponAtkRate?: number;
+    randomValue?: number;
+    overRefineRandomValue?: number;
+    weaponDamageRate?: number;
+    sizeFixRate?: number;
+}
+
 export function calculateWeaponAttack(
     attacker: CombatStats,
     weapon: WeaponContext,
-    weaponAtkRate = 0,
-    randomValue = 0.5,
-    overRefineRandomValue = 0.5,
-    weaponDamageRate = 0,
-    sizeFixRate = 100,
+    options: WeaponAttackOptions = {},
 ): WeaponAttackResult {
+    const {
+        weaponAtkBonus = 0,
+        weaponAtkRate = 0,
+        randomValue = 0.5,
+        overRefineRandomValue = 0.5,
+        weaponDamageRate = 0,
+        sizeFixRate = 100,
+    } = options;
+
     /*
-     * Renewal:
+     * Renewal weapon ATK construction:
      *
-     * weaponAtkRate NÃO é aplicado aqui.
+     * wa.atk
+     *   = Item ATK
+     *   + bWeaponAtkRate
      *
-     * A auditoria de rAthena mostrou que a aplicação explícita de
-     * sd->bonus.weapon_atk_rate está no caminho #ifndef RENEWAL.
+     * wa.atk2
+     *   = normal refine ATK
      *
-     * Portanto, neste ponto usamos o ATK base efetivo da arma
-     * fornecido pelo WeaponContext.
+     * watk
+     *   = wa.atk + wa.atk2
+     *
+     * Important:
+     * bWeaponAtkRate modifies wa.atk before refine is added.
      */
     const baseAttack =
         Math.max(
             0,
-            weapon.attack,
+            Math.floor(weapon.attack),
         );
 
-    /*
-     * Mantemos este campo por compatibilidade com o resultado atual.
-     *
-     * Ele não representa mais uma arma modificada por weaponAtkRate.
-     */
+    const normalizedWeaponAtkBonus =
+        Number.isFinite(weaponAtkBonus)
+            ? Math.floor(weaponAtkBonus)
+            : 0;
+
+    const effectiveBaseAttack =
+        Math.max(
+            0,
+            baseAttack + normalizedWeaponAtkBonus,
+        );
+
+    const normalizedWeaponAtkRate =
+        Number.isFinite(weaponAtkRate)
+            ? weaponAtkRate
+            : 0;
+
     const ratedBaseAttack =
-        Math.floor(
-            baseAttack *
-            (100 + weaponAtkRate) /
-            100,
+        Math.max(
+            0,
+            Math.floor(
+                effectiveBaseAttack *
+                (100 + normalizedWeaponAtkRate) /
+                100,
+            ),
         );
 
     const weaponLevel =
         Math.max(
             0,
-            weapon.weaponLevel,
-        );
-
-    const refineBonus =
-        Math.max(
-            0,
-            weapon.refineBonus,
+            Math.floor(weapon.weaponLevel),
         );
 
     /*
-     * status_weapon_atk():
+     * wa.atk2 = normal refine ATK.
      *
-     *   weapon ATK = wa.atk + wa.atk2
-     *
-     * A composição exata de wa.atk / wa.atk2 com refine ainda será
-     * auditada separadamente.
+     * It contributes to watk, but does NOT participate in:
+     * - weapon variance
+     * - base-stat weapon bonus
      */
+    const refineBonus =
+        Math.max(
+            0,
+            Math.floor(weapon.refineBonus),
+        );
+
     const weaponAtk =
         ratedBaseAttack +
         refineBonus;
 
+    /*
+     * Renewal:
+     *
+     * ranged weapon → DEX
+     * melee weapon  → STR
+     *
+     * The SU_SOULATTACK exception is not represented in the
+     * current combat snapshot yet and will be added separately.
+     */
     const dexWeaponTypes = new Set([
         "Bow",
         "Musical",
@@ -102,10 +148,12 @@ export function calculateWeaponAttack(
     /*
      * Renewal weapon variance:
      *
-     *   variance = 5.0 * wa->atk * wlv / 100.0
+     * variance =
+     *     5.0 * wa.atk * weaponLevel / 100.0
      *
-     * Importante: usa o ATK base da arma, não o valor acrescido
-     * por refine.
+     * IMPORTANT:
+     * uses wa.atk after bWeaponAtkRate,
+     * but before normal refine.
      */
     const variance =
         5.0 *
@@ -116,9 +164,10 @@ export function calculateWeaponAttack(
     /*
      * Renewal base-stat weapon bonus:
      *
-     *   base_stat_bonus = wa->atk * base_stat / 200.0
+     * base_stat_bonus =
+     *     wa.atk * base_stat / 200.0
      *
-     * Também usa o ATK base da arma, sem refine.
+     * Again, wa.atk excludes normal refine.
      */
     const baseStatBonus =
         ratedBaseAttack *
@@ -145,6 +194,13 @@ export function calculateWeaponAttack(
             ),
         );
 
+    /*
+     * rAthena uses the maximum weapon damage for critical
+     * attacks and Maximize Power.
+     *
+     * Critical is not yet passed into this calculator, so the
+     * current resolver continues using deterministic randomValue.
+     */
     const normalizedRandom =
         Math.min(
             0.999999999,
@@ -161,6 +217,12 @@ export function calculateWeaponAttack(
             normalizedRandom,
         );
 
+    /*
+     * Over-refine is separate from wa.atk2.
+     *
+     * rAthena:
+     *     damage += random(1..overrefine)
+     */
     const overRefineBonus =
         Math.max(
             0,
@@ -188,22 +250,29 @@ export function calculateWeaponAttack(
             : 0;
 
     /*
-     * rAthena:
+     * Renewal order:
      *
-     *   weapon damage
-     *       ↓
-     *   weapon damage rate
-     *       ↓
-     *   size fix
+     * weapon damage
+     *     ↓
+     * over-refine
+     *     ↓
+     * weapon damage rate
+     *     ↓
+     * size fix
      */
-    const weaponDamageBeforeSizeFix =
+    const weaponDamageBeforeRate =
         baseValue +
         overRefineDamage;
 
+    const normalizedWeaponDamageRate =
+        Number.isFinite(weaponDamageRate)
+            ? weaponDamageRate
+            : 0;
+
     const weaponDamageAfterRate =
         Math.floor(
-            weaponDamageBeforeSizeFix *
-            (100 + weaponDamageRate) /
+            weaponDamageBeforeRate *
+            (100 + normalizedWeaponDamageRate) /
             100,
         );
 

@@ -50,7 +50,8 @@ export interface WeaponSnapshot {
  * Compatibility alias used by the weapon calculator.
  *
  * WeaponContext will eventually become the richer weapon
- * combat representation when weapon modifiers are added.
+ * combat representation when additional weapon modifiers
+ * are introduced.
  */
 export type WeaponContext = WeaponSnapshot;
 
@@ -75,6 +76,9 @@ export interface PlayerCombatSnapshot {
 
     /**
      * EATK originating from equipment/status effects.
+     *
+     * Includes bBaseAtk and static equipment attack that
+     * belongs to EATK.
      */
     equipAtk: number;
 
@@ -86,26 +90,50 @@ export interface PlayerCombatSnapshot {
     /**
      * Renewal bAtkRate.
      *
-     * Applied to (weaponAtk + equipAtk) during the
-     * basic physical attack composition.
+     * Applied to:
+     *
+     *     (weaponAtk + equipAtk)
+     *
+     * during physical attack composition.
      */
     atkRate: number;
 
     /**
      * Renewal bWeaponAtkRate.
      *
-     * Applied to the base weapon ATK before refine ATK
-     * is added.
+     * Applied to the weapon base ATK before normal refine
+     * ATK is added.
      */
     weaponAtkRate: number;
 
     /**
-     * Provisional generic weapon damage rate.
+     * Renewal bWeaponDamageRate.
      *
-     * The faithful rAthena representation will eventually
-     * be indexed by weapon type.
+     * Kept indexed by rAthena weapon type.
+     *
+     * Example:
+     *
+     * {
+     *     Sword: 20,
+     *     Dagger: 10
+     * }
      */
-    weaponDamageRate: number;
+    weaponDamageRateByType: Record<string, number>;
+
+    /**
+     * Renewal bWeaponAtk,w,n.
+     *
+     * Kept indexed by weapon type because the bonus only
+     * applies when the corresponding weapon type is equipped.
+     *
+     * Example:
+     *
+     * {
+     *     Sword: 20,
+     *     Dagger: 10
+     * }
+     */
+    weaponAtkByType: Record<string, number>;
 
     weapon: WeaponSnapshot | null;
     ammo: AmmoSnapshot | null;
