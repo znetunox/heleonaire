@@ -73,7 +73,7 @@ export function resolveBasicAttackComponents(
 
     return {
         statusAtk:
-            attacker.combatStats.statusAtk,
+            attacker.combatStats.batk * 2,
 
         weaponAtk:
             weaponAttack,

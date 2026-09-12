@@ -8,10 +8,20 @@ import { inventoryService } from "../game/inventory/InventoryService";
 import { itemUseService } from "../game/items/ItemUseService";
 import { statusService } from "../game/status/StatusService";
 import { equipmentService } from "../game/equipment/EquipmentService";
+import type {
+    RathenaElement,
+} from "../data/rathena/parsers/attrFixParser";
 import {
     calcDef,
-    calcPhysicalDamage,
 } from "@heleonaire/shared";
+import {
+    CombatStateBuilder,
+    type CombatCharacterInput,
+} from "../game/combat/CombatStateBuilder";
+
+import { resolveBasicAttackComponents } from "../game/combat/basicAttackResolver";
+
+import { combatSystem } from "../game/combat/CombatSystem";
 import prisma from "../db/prisma";
 import { MAP_DEFS } from "../maps/mapDefs";
 import {
@@ -31,8 +41,18 @@ export class WorldRoom extends Room<WorldState> {
     private processingDropPickups: Set<string> = new Set();
 
     private statSystem = new StatSystem(prisma);
-    private characterSkillService = new CharacterSkillService();
-    private jobProgressionService = new JobProgressionService();
+
+    private combatStateBuilder =
+        new CombatStateBuilder(
+            prisma,
+            statusService,
+        );
+
+    private characterSkillService =
+        new CharacterSkillService();
+
+    private jobProgressionService =
+        new JobProgressionService();
 
     private spawnGroundDrop(
         itemId: number,
@@ -1858,23 +1878,81 @@ export class WorldRoom extends Room<WorldState> {
         _sessionId: string,
     ) {
         // ───────────────────────────────────────────────────────────
-        // Critical
+        // COMBAT SNAPSHOTS
+        // ───────────────────────────────────────────────────────────
+
+        const playerSnapshot =
+            await this.combatStateBuilder.buildPlayerSnapshot({
+                id:
+                    player.characterId,
+
+                name:
+                    player.name,
+
+                jobKey:
+                    player.jobKey,
+
+                level:
+                    player.level,
+
+                str:
+                    player.str,
+
+                agi:
+                    player.agi,
+
+                vit:
+                    player.vit,
+
+                int:
+                    player.int,
+
+                dex:
+                    player.dex,
+
+                luk:
+                    player.luk,
+            });
+
+        const mobData =
+            gameDataService.getMob(
+                mob.mobDbId,
+            );
+
+        if (!mobData) {
+            console.warn(
+                `[WorldRoom] Player attack rejected: ` +
+                `mob data not found ` +
+                `mobDbId=${mob.mobDbId} ` +
+                `mob=${mob.name}`,
+            );
+
+            return;
+        }
+
+        const mobSnapshot =
+            this.combatStateBuilder.buildMobSnapshot(
+                mobData,
+            );
+
+        // ───────────────────────────────────────────────────────────
+        // CRITICAL
         // ───────────────────────────────────────────────────────────
 
         const isCrit =
             Math.random() *
-                100 <
-            player.crit;
+            100 <
+            playerSnapshot.combatStats.crit;
 
         // ───────────────────────────────────────────────────────────
-        // Hit / Flee
+        // HIT / FLEE
         // ───────────────────────────────────────────────────────────
 
         const hitRate =
-            player.hit;
+            playerSnapshot.combatStats.hit;
 
         const fleeRate =
-            mob.level;
+            mobSnapshot.stats.flee;
 
         const finalHitRate =
             Math.min(
@@ -1882,19 +1960,19 @@ export class WorldRoom extends Room<WorldState> {
                 Math.max(
                     5,
                     hitRate -
-                        fleeRate +
-                        80,
+                    fleeRate +
+                    80,
                 ),
             );
 
         // ───────────────────────────────────────────────────────────
-        // Hit Roll
+        // HIT ROLL
         // ───────────────────────────────────────────────────────────
 
         if (
             Math.random() *
-                100 >
-                finalHitRate &&
+            100 >
+            finalHitRate &&
             !isCrit
         ) {
             this.broadcast(
@@ -1924,30 +2002,77 @@ export class WorldRoom extends Room<WorldState> {
         }
 
         // ───────────────────────────────────────────────────────────
-        // Damage
+        // ATTACK COMPONENTS
         // ───────────────────────────────────────────────────────────
+        //
+        // Os valores aleatórios são gerados pelo servidor.
+        // O cliente não participa do cálculo.
+        //
 
-        const rawAtk =
-            player.atk;
+        const components =
+            resolveBasicAttackComponents(
+                playerSnapshot,
+                {
+                    targetSize:
+                        mobSnapshot.size,
 
-        const softDef =
-            calcDef(
-                mob.level,
-                mob.def,
+                    randomValue:
+                        Math.random(),
+
+                    overRefineRandomValue:
+                        Math.random(),
+                },
             );
+
+        // ───────────────────────────────────────────────────────────
+        // DAMAGE
+        // ───────────────────────────────────────────────────────────
+        //
+        // Ataque básico:
+        //
+        // skillRatio = 100
+        // skillConstant = 0
+        // skillId = 0
+        // usesAmmo = false
+        //
+
+        const damageResult =
+            combatSystem.performWeaponAttack({
+                attacker:
+                    playerSnapshot,
+                target:
+                    mobSnapshot,
+                components,
+                attackElement:
+                    "Neutral",
+                targetElement:
+                    mobSnapshot.element as RathenaElement,
+                targetElementLevel:
+                    mobSnapshot.elementLevel,
+                skillRatio:
+                    100,
+                skillConstant:
+                    0,
+                skillId:
+                    0,
+                isCritical:
+                    isCrit,
+                usesAmmo:
+                    false,
+            });
 
         const finalDamage =
-            calcPhysicalDamage(
-                rawAtk,
-                softDef,
-                isCrit,
-            );
+            damageResult.damage;
+
+        // ───────────────────────────────────────────────────────────
+        // APPLY DAMAGE
+        // ───────────────────────────────────────────────────────────
 
         mob.hp =
             Math.max(
                 0,
                 mob.hp -
-                    finalDamage,
+                finalDamage,
             );
 
         this.broadcast(
@@ -1976,9 +2101,9 @@ export class WorldRoom extends Room<WorldState> {
             "combatLog",
             {
                 text:
-                    `${ player.name } causou ${ finalDamage } ` +
-                    `${ isCrit ? "CRÍTICO " : "" } ` +
-                    `de dano em ${ mob.name } !`,
+                    `${player.name} causou ${finalDamage} ` +
+                    `${isCrit ? "CRÍTICO " : ""} ` +
+                    `de dano em ${mob.name} !`,
 
                 color:
                     isCrit
@@ -2013,7 +2138,10 @@ export class WorldRoom extends Room<WorldState> {
                 );
 
             for (const drop of rolledDrops) {
-                const item = gameDataService.getItem(drop.itemId);
+                const item =
+                    gameDataService.getItem(
+                        drop.itemId,
+                    );
 
                 if (!item) {
                     console.warn(
@@ -2046,8 +2174,11 @@ export class WorldRoom extends Room<WorldState> {
                 this.broadcast(
                     "combatLog",
                     {
-                        text: `${mob.name} dropou ${item.name}!`,
-                        color: "#ffcc00",
+                        text:
+                            `${mob.name} dropou ${item.name}!`,
+
+                        color:
+                            "#ffcc00",
                     },
                 );
             }
@@ -2066,8 +2197,8 @@ export class WorldRoom extends Room<WorldState> {
                 "combatLog",
                 {
                     text:
-                        `Derrotou ${ mob.name } ! ` +
-                        `Ganhou ${ expGained } Base EXP.`,
+                        `Derrotou ${mob.name} ! ` +
+                        `Ganhou ${expGained} Base EXP.`,
 
                     color:
                         "#00ffaa",
@@ -2077,7 +2208,9 @@ export class WorldRoom extends Room<WorldState> {
             const jobExpGained =
                 mob.jobExp;
 
-            if (jobExpGained > 0) {
+            if (
+                jobExpGained > 0
+            ) {
                 const jobResult =
                     await this.jobProgressionService.gainJobExp(
                         player.characterId,
@@ -2088,7 +2221,9 @@ export class WorldRoom extends Room<WorldState> {
                     jobResult.jobLevel;
 
                 player.jobExp =
-                    Number(jobResult.jobExp);
+                    Number(
+                        jobResult.jobExp,
+                    );
 
                 player.availableSkillPoints =
                     jobResult.availableSkillPoints;
@@ -2104,14 +2239,16 @@ export class WorldRoom extends Room<WorldState> {
                     },
                 );
 
-                if (jobResult.jobLevelUps > 0) {
+                if (
+                    jobResult.jobLevelUps > 0
+                ) {
                     this.broadcast(
                         "combatLog",
                         {
                             text:
                                 `${player.name} SUBIU ` +
                                 `PARA O JOB LEVEL ` +
-                                `${jobResult.jobLevel} ! ` +
+                                `${player.jobLevel} ! ` +
                                 `+${jobResult.jobLevelUps} ` +
                                 `ponto de skill.`,
 
@@ -2139,16 +2276,6 @@ export class WorldRoom extends Room<WorldState> {
                 player.level +=
                     1;
 
-                // statpoint.yml possui pontos cumulativos.
-                //
-                // Ex:
-                //
-                // Lv1 = 48
-                // Lv2 = 51
-                //
-                // Ganho ao passar Lv1 -> Lv2:
-                //
-                // 51 - 48 = 3
                 const pointsGained =
                     await this.statSystem.getLevelUpPoints(
                         previousLevel,
@@ -2157,29 +2284,18 @@ export class WorldRoom extends Room<WorldState> {
                 player.availablePoints +=
                     pointsGained;
 
-                // Curva temporária de EXP.
-                // Calcula novamente a necessidade
-                // correspondente ao novo nível.
                 player.maxBaseExp =
                     this.calculateBaseExpRequired(
                         player.level,
                     );
 
-                // IMPORTANTE:
-                //
-                // Nenhum atributo é aumentado
-                // automaticamente.
-                //
-                // STR / AGI / VIT / INT / DEX / LUK
-                // permanecem exatamente como estavam.
-
                 this.broadcast(
                     "combatLog",
                     {
                         text:
-                            `${ player.name } SUBIU PARA ` +
-                            `O NÍVEL ${ player.level } ! ` +
-                            `+ ${ pointsGained } pontos de atributo.`,
+                            `${player.name} SUBIU PARA ` +
+                            `O NÍVEL ${player.level} ! ` +
+                            `+ ${pointsGained} pontos de atributo.`,
 
                         color:
                             "#ffbb00",
@@ -2195,8 +2311,7 @@ export class WorldRoom extends Room<WorldState> {
                         availablePoints:
                             player.availablePoints,
 
-                        stats:
-                        {
+                        stats: {
                             str:
                                 player.str,
 
@@ -2242,15 +2357,15 @@ export class WorldRoom extends Room<WorldState> {
                         mob.x =
                             Math.floor(
                                 Math.random() *
-                                    800 +
-                                    100,
+                                800 +
+                                100,
                             );
 
                         mob.y =
                             Math.floor(
                                 Math.random() *
-                                    800 +
-                                    100,
+                                800 +
+                                100,
                             );
 
                         mob.targetX =

@@ -14,6 +14,10 @@ import {
     calculatePostDefenseDamage,
 } from "./postDefenseCalculator";
 
+import {
+    calculateCriticalDamage,
+} from "./criticalCalculator";
+
 import type {
     AttackContext,
     DamageResult,
@@ -51,13 +55,21 @@ export class CombatSystem {
                 },
             );
 
+        
         const postDefense =
             calculatePostDefenseDamage(
                 defense.effectiveDef,
             );
 
+        const critical =
+            calculateCriticalDamage(
+                postDefense.damage,
+                context.attacker.combatStats.crit,
+                context.isCritical,
+            );
+
         const damage =
-            postDefense.damage;
+            critical.outputDamage;
 
         return {
             damage,
