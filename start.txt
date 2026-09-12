@@ -1,0 +1,6 @@
+cd "C:\Users\leona\OneDrive\Área de Trabalho\Heleonaire"
+ollama launch claude --model qwen3-coder:30b -- --tools Read --permission-mode plan
+
+ollama launch claude --model carstenuhlig/omnicoder-2-9b
+
+ollama launch claude --model qwen2.5-coder:7b  -- --tools Read --permission-mode plan
