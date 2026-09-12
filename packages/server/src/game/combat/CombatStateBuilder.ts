@@ -146,28 +146,37 @@ export class CombatStateBuilder {
             atk: 0,
         };
 
-        const derived =
-            this.statSystem.calculateDerivedStats(
-                {
-                    str: character.str,
-                    agi: character.agi,
-                    vit: character.vit,
-                    int: character.int,
-                    dex: character.dex,
-                    luk: character.luk,
-                },
-                character.level,
-                {
-                    ...statSystemModifiers,
+        const derived = this.statSystem.calculateDerivedStats(
+            {
+                str: character.str,
+                agi: character.agi,
+                vit: character.vit,
+                int: character.int,
+                dex: character.dex,
+                luk: character.luk,
+            },
+            character.level,
+            {
+                ...statSystemModifiers,
 
-                    /*
-                     * Equipment DEF é DEF1 / hard DEF.
-                     */
-                    defense:
-                        (statusModifiers.defense ?? 0) +
-                        equipmentModifiers.armorDef,
-                },
-            );
+                defense:
+                    (statusModifiers.defense ?? 0) +
+                    equipmentModifiers.armorDef +
+                    equipmentModifiers.def,
+
+                defenseRate:
+                    (statusModifiers.defenseRate ?? 0) +
+                    equipmentModifiers.defRate,
+
+                defense2:
+                    (statusModifiers.defense2 ?? 0) +
+                    equipmentModifiers.def2,
+
+                defense2Rate:
+                    (statusModifiers.defense2Rate ?? 0) +
+                    equipmentModifiers.def2Rate,
+            },
+        );
 
         /*
          * ---------------------------------------------------------
@@ -293,6 +302,10 @@ export class CombatStateBuilder {
             (statusModifiers.weaponAtkRate ?? 0) +
             (equipmentModifiers.weaponAtkRate ?? 0);
 
+        const weaponAtkByType: Record<string, number> = {
+            ...(equipmentModifiers.weaponAtkByType ?? {}),
+        };
+
         /*
          * ---------------------------------------------------------
          * 8. Weapon damage rate
@@ -309,21 +322,6 @@ export class CombatStateBuilder {
          */
         const weaponDamageRateByType: Record<string, number> = {
             ...(equipmentModifiers.weaponDamageRateByType ?? {}),
-        };
-
-        for (const [
-            weaponType,
-            value,
-        ] of Object.entries(
-            equipmentModifiers.weaponDamageRateByType ?? {},
-        )) {
-            weaponDamageRateByType[weaponType] =
-                (weaponDamageRateByType[weaponType] ?? 0) +
-                value;
-        }
-
-        const weaponAtkByType: Record<string, number> = {
-            ...(equipmentModifiers.weaponAtkByType ?? {}),
         };
 
         /*

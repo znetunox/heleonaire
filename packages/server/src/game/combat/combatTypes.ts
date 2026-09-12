@@ -37,6 +37,21 @@ export interface WeaponSnapshot {
     inventoryId: string | null;
 
     attack: number;
+
+    /**
+     * rAthena bAtk.
+     *
+     * Applied to wa.atk after bWeaponAtkRate.
+     */
+    weaponAtkBonus: number;
+
+    /**
+     * rAthena bAtk2.
+     *
+     * Applied to wa.atk2 together with normal refine ATK.
+     */
+    weaponAtk2Bonus: number;
+
     weaponLevel: number;
     weaponType: string;
     range: number;

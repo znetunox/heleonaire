@@ -40,23 +40,15 @@ export interface DerivedStats {
 }
 
 export type StatModifiers = Partial<Record<
-    | "str"
-    | "agi"
-    | "vit"
-    | "int"
-    | "dex"
-    | "luk"
-    | "atk"
-    | "matk"
-    | "defense"
+    | "str" | "agi" | "vit" | "int" | "dex" | "luk"
+    | "atk" | "matk"
+    | "defense" | "defenseRate"
+    | "defense2" | "defense2Rate"
     | "magicDefense"
-    | "hit"
-    | "flee"
-    | "crit"
-    | "maxHpPercent"
-    | "maxMpPercent",
+    | "hit" | "flee" | "crit"
+    | "maxHpPercent" | "maxMpPercent",
     number
-    >>;
+>>;
 
 export interface AspdCalculationInput {
     baseASPD: number;
@@ -539,16 +531,21 @@ export class StatSystem {
                 Math.floor(effectiveStats.dex / 5) +
                 (modifiers.matk ?? 0),
 
-            def1:
-                modifiers.defense ?? 0,
+            def1: Math.floor(
+                (modifiers.defense ?? 0) *
+                (100 + (modifiers.defenseRate ?? 0)) /
+                100,
+            ),
 
-            def2:
-                Math.floor(
-                    (level + effectiveStats.vit) / 2,
-                ) +
-                Math.floor(
-                    effectiveStats.agi / 5,
-                ),
+            def2: Math.floor(
+                (
+                    Math.floor((level + effectiveStats.vit) / 2)
+                    + Math.floor(effectiveStats.agi / 5)
+                    + (modifiers.defense2 ?? 0)
+                ) *
+                (100 + (modifiers.defense2Rate ?? 0)) /
+                100,
+            ),
 
             mdef1:
                 modifiers.magicDefense ?? 0,

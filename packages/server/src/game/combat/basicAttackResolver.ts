@@ -46,13 +46,14 @@ export function resolveBasicAttackComponents(
                 attacker.combatStats,
                 attacker.weapon,
                 {
-                    weaponAtkBonus:
-                        attacker.weaponAtkByType[
-                        attacker.weapon.weaponType
-                        ] ?? 0,
-
                     weaponAtkRate:
                         attacker.weaponAtkRate,
+
+                    weaponAtkScriptBonus:
+                        attacker.weapon.weaponAtkBonus,
+
+                    weaponAtk2ScriptBonus:
+                        attacker.weapon.weaponAtk2Bonus,
 
                     randomValue:
                         options.randomValue ?? 0.5,

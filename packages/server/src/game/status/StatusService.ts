@@ -18,6 +18,7 @@ export type StatusStatKey =
     | "atk"
     | "matk"
     | "defense"
+    | "defense2"
     | "magicDefense"
     | "hit"
     | "flee"
@@ -28,7 +29,9 @@ export type StatusPercentKey =
     | "maxMpPercent"
     | "atkRate"
     | "weaponAtkRate"
-    | "weaponDamageRate";
+    | "weaponDamageRate"
+    | "defenseRate"
+    | "defense2Rate";
 
 export type StatusStatModifiers =
     Partial<Record<StatusStatKey, number>>

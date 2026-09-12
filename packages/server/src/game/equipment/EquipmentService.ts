@@ -427,6 +427,7 @@ export class EquipmentService {
                             attack: true,
                             weaponLevel: true,
                             range: true,
+                            script: true,
                         },
                     },
                 },
@@ -446,6 +447,31 @@ export class EquipmentService {
 
         if (!weaponEquipment) {
             return null;
+        }
+
+        let weaponAtkBonus = 0;
+        let weaponAtk2Bonus = 0;
+
+        if (weaponEquipment.item.script) {
+            const effects =
+                itemScriptInterpreter.interpret(
+                    weaponEquipment.item.script,
+                );
+
+            for (const effect of effects) {
+                switch (effect.type) {
+                    case "weaponAtk":
+                        weaponAtkBonus += effect.value;
+                        break;
+
+                    case "weaponAtk2":
+                        weaponAtk2Bonus += effect.value;
+                        break;
+
+                    default:
+                        break;
+                }
+            }
         }
 
         if (weaponEquipment.item.attack === null) {
@@ -540,6 +566,10 @@ export class EquipmentService {
                 weaponEquipment.inventoryId,
             attack:
                 weaponEquipment.item.attack,
+
+            weaponAtkBonus,
+            weaponAtk2Bonus,
+
             weaponLevel:
                 weaponEquipment.item.weaponLevel,
             weaponType:
@@ -572,11 +602,14 @@ export class EquipmentService {
      * bPAtkRate         -> patkRate
      * bWeaponAtk        -> weaponAtkByType
      *
-     * bAtk e bAtk2 NÃO são aplicados aqui ainda.
      *
-     * Isso é intencional: a semântica exata desses dois
-     * modificadores ainda está sendo auditada antes de
-     * associá-los a statusAtk/masteryAtk/equipAtk.
+     * bAtk e bAtk2 são tratados no contexto da arma física
+     * através de getWeaponContext().
+     *
+     * bAtk  -> weapon wa.atk
+     * bAtk2 -> weapon wa.atk2
+     *
+     * Eles não pertencem a statusAtk, masteryAtk ou equipAtk.
      *
      * Um mesmo item pode ocupar múltiplos slots em
      * CharacterEquipment. Nesse caso, seus atributos e seu
@@ -647,6 +680,10 @@ export class EquipmentService {
             new Map<string, number>();
         let patk = 0;
         let patkRate = 0;
+        let def = 0;
+        let defRate = 0;
+        let def2 = 0;
+        let def2Rate = 0;
 
         /**
          * bWeaponAtk,w,n
@@ -796,7 +833,25 @@ export class EquipmentService {
                         );
 
                         break;
+
                     }
+
+
+                    case "def":
+                        def += effect.value;
+                        break;
+
+                    case "defRate":
+                        defRate += effect.value;
+                        break;
+
+                    case "def2":
+                        def2 += effect.value;
+                        break;
+
+                    case "def2Rate":
+                        def2Rate += effect.value;
+                        break;
 
                     /**
                      * bPAtk
@@ -850,16 +905,6 @@ export class EquipmentService {
                         break;
                     }
 
-                    /**
-                     * bAtk
-                     * bAtk2
-                     *
-                     * Deliberadamente não aplicados ainda.
-                     *
-                     * A semântica deles precisa ser fechada
-                     * contra status.cpp/battle.cpp antes de
-                     * escolher o componente correto.
-                     */
                     case "weaponAtk":
                     case "weaponAtk2":
                         break;
@@ -876,21 +921,20 @@ export class EquipmentService {
             equipMatk,
             armorDef,
             ammoAtk,
-
             atkRate,
             weaponAtkRate,
-            weaponDamageRateByType:
-                Object.fromEntries(
-                    weaponDamageRateByType.entries(),
-                ),
-
+            weaponDamageRateByType: Object.fromEntries(
+                weaponDamageRateByType,
+            ),
+            weaponAtkByType: Object.fromEntries(
+                weaponAtkByType,
+            ),
             patk,
             patkRate,
-
-            weaponAtkByType:
-                Object.fromEntries(
-                    weaponAtkByType.entries(),
-                ),
+            def,
+            defRate,
+            def2,
+            def2Rate,
         };
     }
 

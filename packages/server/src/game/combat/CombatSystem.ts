@@ -10,6 +10,10 @@ import {
     calculateResistanceReduction,
 } from "./resistanceCalculator";
 
+import {
+    calculatePostDefenseDamage,
+} from "./postDefenseCalculator";
+
 import type {
     AttackContext,
     DamageResult,
@@ -47,13 +51,13 @@ export class CombatSystem {
                 },
             );
 
-        const damage =
-            Math.max(
-                1,
-                Math.floor(
-                    defense.effectiveDef,
-                ),
+        const postDefense =
+            calculatePostDefenseDamage(
+                defense.effectiveDef,
             );
+
+        const damage =
+            postDefense.damage;
 
         return {
             damage,
@@ -78,6 +82,7 @@ export class CombatSystem {
 
             postDefenseDamage:
                 damage,
+
         };
     }
 }

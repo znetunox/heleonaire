@@ -22,8 +22,22 @@ export interface WeaponAttackResult {
 }
 
 export interface WeaponAttackOptions {
-    weaponAtkBonus?: number;
     weaponAtkRate?: number;
+
+    /**
+     * rAthena bAtk.
+     *
+     * Applied to wa.atk after bWeaponAtkRate.
+     */
+    weaponAtkScriptBonus?: number;
+
+    /**
+     * rAthena bAtk2.
+     *
+     * Applied to wa.atk2 together with normal refine ATK.
+     */
+    weaponAtk2ScriptBonus?: number;
+
     randomValue?: number;
     overRefineRandomValue?: number;
     weaponDamageRate?: number;
@@ -36,8 +50,9 @@ export function calculateWeaponAttack(
     options: WeaponAttackOptions = {},
 ): WeaponAttackResult {
     const {
-        weaponAtkBonus = 0,
         weaponAtkRate = 0,
+        weaponAtkScriptBonus = 0,
+        weaponAtk2ScriptBonus = 0,
         randomValue = 0.5,
         overRefineRandomValue = 0.5,
         weaponDamageRate = 0,
@@ -66,16 +81,10 @@ export function calculateWeaponAttack(
             Math.floor(weapon.attack),
         );
 
-    const normalizedWeaponAtkBonus =
-        Number.isFinite(weaponAtkBonus)
-            ? Math.floor(weaponAtkBonus)
+    const normalizedWeaponAtkScriptBonus =
+        Number.isFinite(weaponAtkScriptBonus)
+            ? Math.floor(weaponAtkScriptBonus)
             : 0;
-
-    const effectiveBaseAttack =
-        Math.max(
-            0,
-            baseAttack + normalizedWeaponAtkBonus,
-        );
 
     const normalizedWeaponAtkRate =
         Number.isFinite(weaponAtkRate)
@@ -86,11 +95,15 @@ export function calculateWeaponAttack(
         Math.max(
             0,
             Math.floor(
-                effectiveBaseAttack *
+                baseAttack *
                 (100 + normalizedWeaponAtkRate) /
                 100,
             ),
         );
+
+    const weaponAtk =
+        ratedBaseAttack +
+        normalizedWeaponAtkScriptBonus;
 
     const weaponLevel =
         Math.max(
@@ -111,9 +124,14 @@ export function calculateWeaponAttack(
             Math.floor(weapon.refineBonus),
         );
 
-    const weaponAtk =
-        ratedBaseAttack +
-        refineBonus;
+    const normalizedWeaponAtk2ScriptBonus =
+        Number.isFinite(weaponAtk2ScriptBonus)
+            ? Math.floor(weaponAtk2ScriptBonus)
+            : 0;
+
+    const weaponAtk2 =
+        refineBonus +
+        normalizedWeaponAtk2ScriptBonus;
 
     /*
      * Renewal:
@@ -157,7 +175,7 @@ export function calculateWeaponAttack(
      */
     const variance =
         5.0 *
-        ratedBaseAttack *
+        weaponAtk *
         weaponLevel /
         100.0;
 
@@ -170,7 +188,7 @@ export function calculateWeaponAttack(
      * Again, wa.atk excludes normal refine.
      */
     const baseStatBonus =
-        ratedBaseAttack *
+        weaponAtk *
         baseStat /
         200.0;
 

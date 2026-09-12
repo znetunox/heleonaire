@@ -153,6 +153,12 @@ export class ItemUseService {
                 case "patkRate":
                 case "weaponAtkByType":
                     hasUnsupportedCombatEffect = true;
+                case "def":
+                case "defRate":
+                case "def2":
+                case "def2Rate":
+                    // Efeitos defensivos são efeitos de equipamento/status,
+                    // não efeitos aplicáveis diretamente pelo consumo de um item.
                     break;
 
                 default:
@@ -338,6 +344,12 @@ export class ItemUseService {
                      * Este case existe para manter o discriminated
                      * union completamente exaustivo.
                      */
+                case "def":
+                case "defRate":
+                case "def2":
+                case "def2Rate":
+                    // Efeitos defensivos são efeitos de equipamento/status,
+                    // não efeitos aplicáveis diretamente pelo consumo de um item.
                     break;
 
                 default:

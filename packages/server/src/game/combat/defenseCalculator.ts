@@ -44,11 +44,12 @@ export function calculateDefenseReduction(
             options.skillRatio /
             200;
     } else if (!options.ignoreDef) {
-        effectiveDef =
+        effectiveDef = Math.trunc(
             effectiveDef *
             (4000 + def1) /
             (4000 + 10 * def1) -
-            def2;
+            def2,
+        );
     }
 
     return {

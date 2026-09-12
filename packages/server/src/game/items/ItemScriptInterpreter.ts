@@ -97,7 +97,24 @@ export type ItemEffect =
         type: "weaponAtkByType";
         weaponType: string;
         value: number;
+    }
+    | {
+        type: "def";
+        value: number;
+    }
+    | {
+        type: "defRate";
+        value: number;
+    }
+    | {
+        type: "def2";
+        value: number;
+    }
+    | {
+        type: "def2Rate";
+        value: number;
     };
+
 
 export class ItemScriptInterpreter {
     interpret(script: string): ItemEffect[] {
@@ -683,6 +700,42 @@ export class ItemScriptInterpreter {
                         type:
                             "weaponDamageRate",
                         weaponType,
+                        value,
+                    }),
+                );
+
+            case "bdef":
+                return this.numericEffect(
+                    call,
+                    (value) => ({
+                        type: "def",
+                        value,
+                    }),
+                );
+
+            case "bdefrate":
+                return this.numericEffect(
+                    call,
+                    (value) => ({
+                        type: "defRate",
+                        value,
+                    }),
+                );
+
+            case "bdef2":
+                return this.numericEffect(
+                    call,
+                    (value) => ({
+                        type: "def2",
+                        value,
+                    }),
+                );
+
+            case "bdef2rate":
+                return this.numericEffect(
+                    call,
+                    (value) => ({
+                        type: "def2Rate",
                         value,
                     }),
                 );

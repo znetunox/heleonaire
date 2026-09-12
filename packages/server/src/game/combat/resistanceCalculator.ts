@@ -29,13 +29,16 @@ export function calculateResistanceReduction(
     }
 
     const reduction =
-        effectiveResistance /
-        (effectiveResistance + 400) *
-        0.8;
+        Math.trunc(
+            damageBeforeResistance *
+            effectiveResistance /
+            (effectiveResistance + 400) *
+            0.8,
+        );
 
     const damageAfterResistance =
         damageBeforeResistance -
-        reduction * damageBeforeResistance;
+        reduction;
 
     return {
         resistance: Math.trunc(resistance),
