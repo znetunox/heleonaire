@@ -97,15 +97,28 @@ export class ItemUseService {
         }
 
         /*
-         * Primeiro validamos se o item possui algum efeito
-         * que possa ser aplicado.
+         * ItemUseService é responsável somente pelos efeitos
+         * que podem ser aplicados através do uso de um item
+         * consumível:
          *
-         * Não calculamos HEAL/PERCENT_HEAL ainda porque
-         * STATUS_START pode alterar maxHp/maxMp.
+         *   HEAL
+         *   PERCENT_HEAL
+         *   STATUS_START
+         *   STATUS_END
+         *
+         * Efeitos de combate como bAtk, bAtk2, bBaseAtk,
+         * bWeaponAtkRate, bWeaponDamageRate, bPAtk etc.
+         * pertencem ao contexto de equipamentos/combat modifiers
+         * e não devem ser aplicados durante o consumo do item.
+         *
+         * Não ignoramos esses efeitos silenciosamente.
+         * Um script que contenha efeitos de combate não é
+         * considerado um script válido para ItemUseService.
          */
         let hasStatusStartEffect = false;
         let hasStatusEndEffect = false;
         let hasHealEffect = false;
+        let hasUnsupportedCombatEffect = false;
 
         for (const effect of effects) {
             switch (effect.type) {
@@ -129,9 +142,36 @@ export class ItemUseService {
                     }
                     break;
 
+                case "stat":
+                case "weaponAtk":
+                case "weaponAtk2":
+                case "baseAtk":
+                case "atkRate":
+                case "weaponAtkRate":
+                case "weaponDamageRate":
+                case "patk":
+                case "patkRate":
+                case "weaponAtkByType":
+                    hasUnsupportedCombatEffect = true;
+                    break;
+
                 default:
                     this.assertNeverEffect(effect);
             }
+        }
+
+        /*
+         * Combat effects são interpretados pelo parser para que
+         * possam ser utilizados posteriormente pelo sistema de
+         * equipamentos/combat modifiers.
+         *
+         * Eles não devem ser aplicados pelo fluxo de uso de item.
+         */
+        if (hasUnsupportedCombatEffect) {
+            return {
+                success: false,
+                reason: "UNSUPPORTED_ITEM_SCRIPT",
+            };
         }
 
         /*
@@ -281,6 +321,23 @@ export class ItemUseService {
 
                 case "STATUS_START":
                 case "STATUS_END":
+                    break;
+
+                case "stat":
+                case "weaponAtk":
+                case "weaponAtk2":
+                case "baseAtk":
+                case "atkRate":
+                case "weaponAtkRate":
+                case "weaponDamageRate":
+                case "patk":
+                case "patkRate":
+                case "weaponAtkByType":
+                    /*
+                     * Já foram rejeitados na validação anterior.
+                     * Este case existe para manter o discriminated
+                     * union completamente exaustivo.
+                     */
                     break;
 
                 default:

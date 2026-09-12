@@ -1,5 +1,30 @@
 import { StatusId } from "../status/StatusTypes";
 
+export type ScriptArgument =
+    | {
+        type: "number";
+        value: number;
+    }
+    | {
+        type: "identifier";
+        value: string;
+    }
+    | {
+        type: "string";
+        value: string;
+    };
+
+export interface ParsedScriptCall {
+    command:
+    | "bonus"
+    | "bonus2"
+    | "bonus3"
+    | "bonus4"
+    | "bonus5";
+    opcode: string;
+    args: ScriptArgument[];
+}
+
 export type ItemEffect =
     | {
         type: "HEAL";
@@ -23,6 +48,55 @@ export type ItemEffect =
     | {
         type: "STATUS_END";
         statusId: StatusId;
+    }
+    | {
+        type: "stat";
+        stat:
+        | "str"
+        | "agi"
+        | "vit"
+        | "int"
+        | "dex"
+        | "luk";
+        value: number;
+    }
+    | {
+        type: "weaponAtk";
+        value: number;
+    }
+    | {
+        type: "weaponAtk2";
+        value: number;
+    }
+    | {
+        type: "baseAtk";
+        value: number;
+    }
+    | {
+        type: "atkRate";
+        value: number;
+    }
+    | {
+        type: "weaponAtkRate";
+        value: number;
+    }
+    | {
+        type: "weaponDamageRate";
+        weaponType: string;
+        value: number;
+    }
+    | {
+        type: "patk";
+        value: number;
+    }
+    | {
+        type: "patkRate";
+        value: number;
+    }
+    | {
+        type: "weaponAtkByType";
+        weaponType: string;
+        value: number;
     };
 
 export class ItemScriptInterpreter {
@@ -39,11 +113,14 @@ export class ItemScriptInterpreter {
             return [];
         }
 
-        const statements = this.splitStatements(normalized);
+        const statements =
+            this.splitStatements(normalized);
+
         const effects: ItemEffect[] = [];
 
         for (const statement of statements) {
-            const effect = this.interpretStatement(statement);
+            const effect =
+                this.interpretStatement(statement);
 
             if (effect) {
                 effects.push(effect);
@@ -56,15 +133,39 @@ export class ItemScriptInterpreter {
     private interpretStatement(
         statement: string,
     ): ItemEffect | null {
-        const normalized = statement.trim();
+        const normalized =
+            statement.trim();
 
         if (!normalized) {
             return null;
         }
 
-        const itemHealMatch = normalized.match(
-            /^itemheal\s+(.+)$/is,
-        );
+        /*
+         * rAthena item scripts:
+         *
+         * bonus  <opcode>,...
+         * bonus2 <opcode>,...
+         * bonus3 <opcode>,...
+         * bonus4 <opcode>,...
+         * bonus5 <opcode>,...
+         *
+         * The parser accepts all five syntactic forms.
+         * Semantic support is intentionally limited to the
+         * combat subset currently audited.
+         */
+        const bonusCall =
+            this.parseBonusCall(normalized);
+
+        if (bonusCall) {
+            return this.interpretBonus(
+                bonusCall,
+            );
+        }
+
+        const itemHealMatch =
+            normalized.match(
+                /^itemheal\s+(.+)$/is,
+            );
 
         if (itemHealMatch) {
             const separatorIndex =
@@ -87,13 +188,19 @@ export class ItemScriptInterpreter {
                     .trim();
 
             const hp =
-                this.evaluateNumber(hpExpression);
+                this.evaluateNumber(
+                    hpExpression,
+                );
 
             const mp =
-                this.evaluateNumber(mpExpression);
+                this.evaluateNumber(
+                    mpExpression,
+                );
 
-            
-            if (hp === null || mp === null) {
+            if (
+                hp === null ||
+                mp === null
+            ) {
                 return null;
             }
 
@@ -115,7 +222,10 @@ export class ItemScriptInterpreter {
                     statusStartMatch[1],
                 );
 
-            if (args.length < 2 || args.length > 6) {
+            if (
+                args.length < 2 ||
+                args.length > 6
+            ) {
                 return null;
             }
 
@@ -123,7 +233,9 @@ export class ItemScriptInterpreter {
                 args[0].trim();
 
             const durationMs =
-                this.evaluateNumber(args[1]);
+                this.evaluateNumber(
+                    args[1],
+                );
 
             if (
                 !statusId ||
@@ -133,7 +245,12 @@ export class ItemScriptInterpreter {
                 return null;
             }
 
-            const values = [0, 0, 0, 0];
+            const values = [
+                0,
+                0,
+                0,
+                0,
+            ];
 
             for (
                 let i = 2;
@@ -141,7 +258,9 @@ export class ItemScriptInterpreter {
                 i++
             ) {
                 const value =
-                    this.evaluateNumber(args[i]);
+                    this.evaluateNumber(
+                        args[i],
+                    );
 
                 if (value === null) {
                     return null;
@@ -152,7 +271,8 @@ export class ItemScriptInterpreter {
 
             return {
                 type: "STATUS_START",
-                statusId,
+                statusId:
+                    statusId as StatusId,
                 durationMs,
                 value: values[0],
                 value2: values[1],
@@ -162,10 +282,13 @@ export class ItemScriptInterpreter {
         }
 
         const statusEndMatch =
-            normalized.match(/^sc_end\s+(.+)$/is);
+            normalized.match(
+                /^sc_end\s+(.+)$/is,
+            );
 
         if (statusEndMatch) {
-            const statusId = statusEndMatch[1].trim();
+            const statusId =
+                statusEndMatch[1].trim();
 
             if (!statusId) {
                 return null;
@@ -173,13 +296,15 @@ export class ItemScriptInterpreter {
 
             return {
                 type: "STATUS_END",
-                statusId,
+                statusId:
+                    statusId as StatusId,
             };
         }
 
-        const percentHealMatch = normalized.match(
-            /^percentheal\s+(.+)$/is,
-        );
+        const percentHealMatch =
+            normalized.match(
+                /^percentheal\s+(.+)$/is,
+            );
 
         if (percentHealMatch) {
             const separatorIndex =
@@ -202,10 +327,14 @@ export class ItemScriptInterpreter {
                     .trim();
 
             const hpPercent =
-                this.evaluateNumber(hpExpression);
+                this.evaluateNumber(
+                    hpExpression,
+                );
 
             const mpPercent =
-                this.evaluateNumber(mpExpression);
+                this.evaluateNumber(
+                    mpExpression,
+                );
 
             if (
                 hpPercent === null ||
@@ -222,6 +351,430 @@ export class ItemScriptInterpreter {
         }
 
         return null;
+    }
+
+    /**
+     * Parses the generic rAthena bonus syntax.
+     *
+     * Examples:
+     *
+     * bonus bStr,5
+     * bonus bAtk,10
+     * bonus2 bWeaponAtk,W_SWORD,10
+     * bonus3 ...
+     * bonus4 ...
+     * bonus5 ...
+     *
+     * This method is deliberately syntax-oriented.
+     * It does not decide whether an opcode is supported.
+     */
+    private parseBonusCall(
+        statement: string,
+    ): ParsedScriptCall | null {
+        const match =
+            statement.match(
+                /^bonus([2-5]?)\s+(.+)$/is,
+            );
+
+        if (!match) {
+            return null;
+        }
+
+        const suffix =
+            match[1] ?? "";
+
+        const command =
+            `bonus${suffix}` as
+            | "bonus"
+            | "bonus2"
+            | "bonus3"
+            | "bonus4"
+            | "bonus5";
+
+        const rawArguments =
+            this.splitArguments(
+                match[2],
+            );
+
+        if (rawArguments.length === 0) {
+            return null;
+        }
+
+        const parsedArguments:
+            ScriptArgument[] = [];
+
+        for (
+            const rawArgument
+            of rawArguments
+        ) {
+            const argument =
+                this.parseScriptArgument(
+                    rawArgument,
+                );
+
+            if (!argument) {
+                return null;
+            }
+
+            parsedArguments.push(
+                argument,
+            );
+        }
+
+        const opcode =
+            this.extractOpcode(
+                parsedArguments[0],
+            );
+
+        if (!opcode) {
+            return null;
+        }
+
+        return {
+            command,
+            opcode,
+            args:
+                parsedArguments.slice(1),
+        };
+    }
+
+    /**
+     * Converts one raw script argument into a
+     * typed parser argument.
+     *
+     * Numeric arguments are preserved as numbers.
+     * Identifiers such as W_SWORD are preserved as
+     * identifiers.
+     * Quoted strings are preserved as strings.
+     */
+    private parseScriptArgument(
+        expression: string,
+    ): ScriptArgument | null {
+        const normalized =
+            expression.trim();
+
+        if (!normalized) {
+            return null;
+        }
+
+        const numeric =
+            this.evaluateNumber(
+                normalized,
+            );
+
+        if (numeric !== null) {
+            return {
+                type: "number",
+                value: numeric,
+            };
+        }
+
+        if (
+            (
+                normalized.startsWith("\"") &&
+                normalized.endsWith("\"")
+            ) ||
+            (
+                normalized.startsWith("'") &&
+                normalized.endsWith("'")
+            )
+        ) {
+            return {
+                type: "string",
+                value:
+                    normalized.slice(
+                        1,
+                        -1,
+                    ),
+            };
+        }
+
+        if (
+            /^[A-Za-z_][A-Za-z0-9_]*$/.test(
+                normalized,
+            )
+        ) {
+            return {
+                type: "identifier",
+                value: normalized,
+            };
+        }
+
+        return null;
+    }
+
+    private extractOpcode(
+        argument: ScriptArgument,
+    ): string | null {
+        if (
+            argument.type !==
+            "identifier" &&
+            argument.type !==
+            "string"
+        ) {
+            return null;
+        }
+
+        const opcode =
+            argument.value.trim();
+
+        if (!opcode) {
+            return null;
+        }
+
+        return opcode;
+    }
+
+    /**
+     * Applies the semantic subset of rAthena item
+     * bonuses currently audited for combat.
+     *
+     * Unsupported bonus opcodes intentionally return
+     * null. They are not guessed or silently converted
+     * into another combat attribute.
+     */
+    private interpretBonus(
+        call: ParsedScriptCall,
+    ): ItemEffect | null {
+        const opcode =
+            call.opcode
+                .trim()
+                .toLowerCase();
+
+        switch (opcode) {
+            case "bstr":
+                return this.numericEffect(
+                    call,
+                    (value) => ({
+                        type: "stat",
+                        stat: "str",
+                        value,
+                    }),
+                );
+
+            case "bagi":
+                return this.numericEffect(
+                    call,
+                    (value) => ({
+                        type: "stat",
+                        stat: "agi",
+                        value,
+                    }),
+                );
+
+            case "bvit":
+                return this.numericEffect(
+                    call,
+                    (value) => ({
+                        type: "stat",
+                        stat: "vit",
+                        value,
+                    }),
+                );
+
+            case "bint":
+                return this.numericEffect(
+                    call,
+                    (value) => ({
+                        type: "stat",
+                        stat: "int",
+                        value,
+                    }),
+                );
+
+            case "bdex":
+                return this.numericEffect(
+                    call,
+                    (value) => ({
+                        type: "stat",
+                        stat: "dex",
+                        value,
+                    }),
+                );
+
+            case "bluk":
+                return this.numericEffect(
+                    call,
+                    (value) => ({
+                        type: "stat",
+                        stat: "luk",
+                        value,
+                    }),
+                );
+
+            case "batk":
+                return this.numericEffect(
+                    call,
+                    (value) => ({
+                        type: "weaponAtk",
+                        value,
+                    }),
+                );
+
+            case "batk2":
+                return this.numericEffect(
+                    call,
+                    (value) => ({
+                        type: "weaponAtk2",
+                        value,
+                    }),
+                );
+
+            case "bbaseatk":
+                return this.numericEffect(
+                    call,
+                    (value) => ({
+                        type: "baseAtk",
+                        value,
+                    }),
+                );
+
+            case "batkrate":
+                return this.numericEffect(
+                    call,
+                    (value) => ({
+                        type: "atkRate",
+                        value,
+                    }),
+                );
+
+            case "bweaponatkrate":
+                return this.numericEffect(
+                    call,
+                    (value) => ({
+                        type: "weaponAtkRate",
+                        value,
+                    }),
+                );
+
+            case "bpatk":
+                return this.numericEffect(
+                    call,
+                    (value) => ({
+                        type: "patk",
+                        value,
+                    }),
+                );
+
+            case "bpatkrate":
+                return this.numericEffect(
+                    call,
+                    (value) => ({
+                        type: "patkRate",
+                        value,
+                    }),
+                );
+
+            case "bweaponatk":
+                return this.parseWeaponTypeEffect(
+                    call,
+                    (weaponType, value) => ({
+                        type:
+                            "weaponAtkByType",
+                        weaponType,
+                        value,
+                    }),
+                );
+
+            case "bweapondamagerate":
+                return this.parseWeaponTypeEffect(
+                    call,
+                    (weaponType, value) => ({
+                        type:
+                            "weaponDamageRate",
+                        weaponType,
+                        value,
+                    }),
+                );
+
+            default:
+                return null;
+        }
+    }
+
+    /**
+     * Handles bonus opcodes that require exactly one
+     * numeric argument.
+     */
+    private numericEffect(
+        call: ParsedScriptCall,
+        create: (
+            value: number,
+        ) => ItemEffect,
+    ): ItemEffect | null {
+        if (call.args.length !== 1) {
+            return null;
+        }
+
+        const argument =
+            call.args[0];
+
+        if (
+            argument.type !==
+            "number"
+        ) {
+            return null;
+        }
+
+        return create(
+            argument.value,
+        );
+    }
+
+    /**
+     * Handles:
+     *
+     * bonus2 bWeaponAtk,W_SWORD,10
+     * bonus2 bWeaponDamageRate,W_BOW,20
+     *
+     * The weapon type remains a separate semantic
+     * dimension. It is not collapsed into a generic
+     * ATK modifier.
+     */
+    private parseWeaponTypeEffect(
+        call: ParsedScriptCall,
+        create: (
+            weaponType: string,
+            value: number,
+        ) => ItemEffect,
+    ): ItemEffect | null {
+        if (call.args.length !== 2) {
+            return null;
+        }
+
+        const weaponTypeArgument =
+            call.args[0];
+
+        const valueArgument =
+            call.args[1];
+
+        if (
+            weaponTypeArgument.type !==
+            "identifier" &&
+            weaponTypeArgument.type !==
+            "string"
+        ) {
+            return null;
+        }
+
+        if (
+            valueArgument.type !==
+            "number"
+        ) {
+            return null;
+        }
+
+        const weaponType =
+            weaponTypeArgument.value.trim();
+
+        if (!weaponType) {
+            return null;
+        }
+
+        return create(
+            weaponType,
+            valueArgument.value,
+        );
     }
 
     private splitArguments(
@@ -244,7 +797,8 @@ export class ItemScriptInterpreter {
 
             if (inString) {
                 if (
-                    char === stringDelimiter &&
+                    char ===
+                    stringDelimiter &&
                     expression[i - 1] !== "\\"
                 ) {
                     inString = false;
@@ -337,13 +891,13 @@ export class ItemScriptInterpreter {
             i < script.length;
             i++
         ) {
-            const char = script[i];
+            const char =
+                script[i];
 
-            if (
-                inString
-            ) {
+            if (inString) {
                 if (
-                    char === stringDelimiter &&
+                    char ===
+                    stringDelimiter &&
                     script[i - 1] !== "\\"
                 ) {
                     inString = false;
@@ -387,7 +941,9 @@ export class ItemScriptInterpreter {
                         .trim();
 
                 if (statement) {
-                    statements.push(statement);
+                    statements.push(
+                        statement,
+                    );
                 }
 
                 start = i + 1;
@@ -407,7 +963,9 @@ export class ItemScriptInterpreter {
                 .trim();
 
         if (remaining) {
-            statements.push(remaining);
+            statements.push(
+                remaining,
+            );
         }
 
         return statements;
@@ -425,11 +983,13 @@ export class ItemScriptInterpreter {
             i < expression.length;
             i++
         ) {
-            const char = expression[i];
+            const char =
+                expression[i];
 
             if (inString) {
                 if (
-                    char === stringDelimiter &&
+                    char ===
+                    stringDelimiter &&
                     expression[i - 1] !== "\\"
                 ) {
                     inString = false;
@@ -488,7 +1048,9 @@ export class ItemScriptInterpreter {
             expression.trim();
 
         if (
-            /^-?\d+$/.test(normalized)
+            /^-?\d+$/.test(
+                normalized,
+            )
         ) {
             return Number(normalized);
         }
@@ -515,7 +1077,7 @@ export class ItemScriptInterpreter {
         return (
             Math.floor(
                 Math.random() *
-                    (max - min + 1),
+                (max - min + 1),
             ) + min
         );
     }
