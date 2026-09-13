@@ -3,6 +3,10 @@ import {
 } from "./attackCalculator";
 
 import {
+    calculateAttackerCardfix,
+} from "./cardfixCalculator";
+
+import {
     calculateDefenseReduction,
     resolveDefPiercing,
 } from "./defenseCalculator";
@@ -72,10 +76,42 @@ export class CombatSystem {
                 context.statusElement ?? "Neutral",
             );
 
-        // Composition uses the ORIGINAL components (not element-modified)
+        // ───────────────────────────────────────────────────────────
+        // ATTACKER CARDFIX
+        // ───────────────────────────────────────────────────────────
+        //
+        // Aplicado ANTES da composição do ataque.
+        // Modifica apenas weaponAtk e equipAtk, preservando
+        // statusAtk, masteryAtk e patk inalterados.
+        //
+        const attackerCardfixResult =
+            calculateAttackerCardfix({
+                weaponAtk:
+                    context.components.weaponAtk,
+                equipAtk:
+                    context.components.equipAtk,
+                classification:
+                    context.classification,
+                flags:
+                    context.flags,
+                modifiers:
+                    context.attacker.cardfix,
+            });
+
+        // Criamos uma cópia dos componentes com cardfix aplicado
+        // sem mutar o contexto original
+        const componentsWithCardfix = {
+            ...context.components,
+            weaponAtk:
+                attackerCardfixResult.weaponAtk,
+            equipAtk:
+                attackerCardfixResult.equipAtk,
+        };
+
+        // Composition uses the cardfix-modified components
         const attack =
             calculateAttackComposition(
-                context.components,
+                componentsWithCardfix,
                 context.attacker.combatStats.patk,
                 context.attacker.atkRate,
                 context.skillRatio,
