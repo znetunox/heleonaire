@@ -383,6 +383,9 @@ export class CombatStateBuilder {
 
             weaponAtkByType,
 
+            cardfix:
+                equipmentModifiers.cardfix,
+
             weapon,
 
             ammo:

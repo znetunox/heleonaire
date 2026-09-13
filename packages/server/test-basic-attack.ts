@@ -102,6 +102,22 @@ if (derived.statusAtk !== 122) {
         weaponAtkRate: 0,
         weaponDamageRate: 0,
 
+        cardfix: {
+            addRace: {},
+            addElement: {},
+            addSize: {},
+            addRace2: {},
+            addClass: {},
+            subElement: {},
+            subDefElement: {},
+            subSize: {},
+            weaponSubSize: {},
+            subRace2: {},
+            subRace: {},
+            subClass: {},
+            defenseAgainstAttackerClass: {},
+        },
+
         weapon: null,
         ammo: null,
     } satisfies PlayerCombatSnapshot;
@@ -135,7 +151,6 @@ if (derived.statusAtk !== 122) {
 
     const playerWithWeapon: PlayerCombatSnapshot = {
         ...playerWithoutWeapon,
-
         equipAtk: 7,
 
         weapon: {

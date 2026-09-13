@@ -2,6 +2,9 @@ import type {
     CharacterStatValues,
 } from "../stats/StatSystem";
 import type {
+    CardfixModifiers,
+} from "../equipment/EquipmentService";
+import type {
     ParsedAttributeTable,
     RathenaElement,
 } from "../../data/rathena/parsers/attrFixParser";
@@ -171,6 +174,8 @@ export interface PlayerCombatSnapshot {
      * }
      */
     weaponAtkByType: Record<string, number>;
+
+    cardfix: CardfixModifiers;
 
     weapon: WeaponSnapshot | null;
     ammo: AmmoSnapshot | null;
