@@ -546,6 +546,26 @@ export class CombatStateBuilder {
 
             elementLevel:
                 mob.elementLevel,
+
+            cardfix:
+                // Mobs não possuem equipamento no mesmo sentido que players.
+                // Por enquanto, cardfix vazio. Futuramente pode vir de
+                // dados estáticos do mob DB.
+                {
+                    addRace: {},
+                    addElement: {},
+                    addSize: {},
+                    addRace2: {},
+                    addClass: {},
+                    subElement: {},
+                    subDefElement: {},
+                    subSize: {},
+                    weaponSubSize: {},
+                    subRace2: {},
+                    subRace: {},
+                    subClass: {},
+                    defenseAgainstAttackerClass: {},
+                },
         };
     }
 

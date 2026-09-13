@@ -4,6 +4,7 @@ import {
 
 import {
     calculateAttackerCardfix,
+    calculateDefenderCardfix,
 } from "./cardfixCalculator";
 
 import {
@@ -177,10 +178,29 @@ export class CombatSystem {
                 elementContext.attributeTable,
             );
 
-        // Critical is applied AFTER element
+        // ───────────────────────────────────────────────────────────
+        // DEFENDER CARDFIX
+        // ───────────────────────────────────────────────────────────
+        //
+        // Aplicado DEPOIS do elemento (Renewal order).
+        // Usa os modifiers defensivos do alvo (target.cardfix).
+        //
+        const defenderCardfixResult =
+            calculateDefenderCardfix({
+                damage:
+                    elementalDamage.postElementDamage,
+                classification:
+                    context.classification,
+                flags:
+                    context.flags,
+                modifiers:
+                    context.target.cardfix,
+            });
+
+        // Critical is applied AFTER defender cardfix
         const critical =
             calculateCriticalDamage(
-                elementalDamage.postElementDamage,
+                defenderCardfixResult.damage,
                 context.attacker.combatStats.crit,
                 context.isCritical,
             );

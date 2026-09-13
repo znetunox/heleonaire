@@ -107,6 +107,21 @@ const target = {
     class: "Normal",
     element: "Neutral",
     elementLevel: 1,
+    cardfix: {
+        addRace: {},
+        addElement: {},
+        addSize: {},
+        addRace2: {},
+        addClass: {},
+        subElement: {},
+        subDefElement: {},
+        subSize: {},
+        weaponSubSize: {},
+        subRace2: {},
+        subRace: {},
+        subClass: {},
+        defenseAgainstAttackerClass: {},
+    },
 } as unknown as AttackContext["target"];
 
 function runCase(

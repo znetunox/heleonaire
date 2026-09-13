@@ -9,6 +9,8 @@ import type {
     RathenaElement,
 } from "../../data/rathena/parsers/attrFixParser";
 
+export type { CardfixModifiers };
+
 export interface CombatStats {
     level: number;
 
@@ -204,6 +206,8 @@ export interface MobCombatSnapshot {
     class: string;
     element: string;
     elementLevel: number;
+
+    cardfix: CardfixModifiers;
 }
 
 export type CombatAttackType =
