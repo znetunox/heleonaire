@@ -15,7 +15,16 @@ export class Player extends Schema {
     name: string = "";
 
     @type("string")
+    race: string = "Human";
+
+    @type("string")
     class: string = "knight";
+
+    @type("string")
+    element: string = "Neutral";
+
+    @type(["string"])
+    race2: string[] = [];
 
     @type("string")
     jobKey: string = "SWORDMAN";

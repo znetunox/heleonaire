@@ -3,6 +3,8 @@ import {
 } from "./CombatSystem";
 import type {
     AttackContext,
+    AttackFlags,
+    CombatClassification,
     DamageResult,
 } from "./combatTypes";
 
@@ -13,30 +15,98 @@ const neutralAttributeTable = {
 };
 
 const attacker = {
+    characterId: "test",
+    name: "Test",
+    jobKey: "KNIGHT",
+    race: "Human",
+    class: "Knight",
+    element: "Neutral",
+    race2: [],
     combatStats: {
         batk: 50,
         patk: 0,
         crit: 0,
+        def1: 0,
+        def2: 0,
+        res: 0,
+        mdef1: 0,
+        mdef2: 0,
+        hit: 0,
+        flee: 0,
+        level: 1,
+        str: 0,
+        agi: 0,
+        vit: 0,
+        int: 0,
+        dex: 0,
+        luk: 0,
     },
+    stats: {
+        str: 0,
+        agi: 0,
+        vit: 0,
+        int: 0,
+        dex: 0,
+        luk: 0,
+    },
+    equipAtk: 0,
+    ammoAtk: 0,
     atkRate: 0,
-    ignoreRes: 0,
-    ignoreDefRate: 0,
-    ignoreDefByRace: {},
-    ignoreDefByClass: {},
-    defPiercingByRace: {},
-    defPiercingByElement: {},
-    defPiercingByClass: {},
+    weaponAtkRate: 0,
+    weaponDamageRateByType: {},
+    weaponAtkByType: {},
+    cardfix: {
+        addRace: {},
+        addElement: {},
+        addSize: {},
+        addRace2: {},
+        addClass: {},
+        subElement: {},
+        subDefElement: {},
+        subSize: {},
+        weaponSubSize: {},
+        subRace2: {},
+        subRace: {},
+        subClass: {},
+        defenseAgainstAttackerClass: {},
+    },
+    weapon: null,
+    ammo: null,
 } as unknown as AttackContext["attacker"];
 
 const target = {
+    mobDbId: 1,
+    aegisName: "TEST_MOB",
+    name: "Test Mob",
     stats: {
         def1: 100,
         def2: 20,
         res: 100,
+        batk: 0,
+        statusAtk: 0,
+        patk: 0,
+        mdef1: 0,
+        mdef2: 0,
+        hit: 0,
+        flee: 0,
+        crit: 0,
+        level: 1,
+        str: 0,
+        agi: 0,
+        vit: 0,
+        int: 0,
+        dex: 0,
+        luk: 0,
     },
+    attack: 0,
+    attack2: 0,
+    attackRange: 1,
+    size: "Medium",
     race: "DemiHuman",
+    race2: [],
     class: "Normal",
     element: "Neutral",
+    elementLevel: 1,
 } as unknown as AttackContext["target"];
 
 function runCase(
@@ -46,6 +116,35 @@ function runCase(
         "ignoreResRate" | "ignoreRes" | "simpleDefense" | "ignoreDef"
     >,
 ): DamageResult {
+    const classification: CombatClassification = {
+        attacker: {
+            race: "Human",
+            class: "Knight",
+            element: "Neutral",
+            race2: [],
+        },
+        target: {
+            race: "DemiHuman",
+            race2: [],
+            class: "Normal",
+            element: "Neutral",
+            elementLevel: 1,
+            size: "Medium",
+        },
+        attack: {
+            element: "Neutral",
+            rangeType: "short",
+            type: "weapon",
+            hand: "right",
+        },
+    };
+
+    const flags: AttackFlags = {
+        ignoreAttackerCardfix: false,
+        ignoreDefenderCardfix: false,
+        ignoreElementCardfix: false,
+    };
+
     const context = {
         attacker,
         target,
@@ -66,6 +165,8 @@ function runCase(
         skillId: 0,
         isCritical: false,
         usesAmmo: false,
+        classification,
+        flags,
         ...options,
     } as AttackContext;
 

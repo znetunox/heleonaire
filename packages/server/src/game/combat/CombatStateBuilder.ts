@@ -26,6 +26,7 @@ import type {
 import type {
     GameMobData,
 } from "../../services/GameDataService";
+import type { RathenaElement } from "../../data/rathena/parsers/attrFixParser";
 
 import {
     calculateEffectivePatk,
@@ -35,6 +36,11 @@ export interface CombatCharacterInput {
     id: string;
     name: string;
     jobKey: string;
+
+    race: string;
+    class: string;
+    element: string;
+    race2: readonly string[];
 
     level: number;
 
@@ -346,6 +352,18 @@ export class CombatStateBuilder {
             jobKey:
                 character.jobKey,
 
+            race:
+                character.race,
+
+            class:
+                character.class,
+
+            element:
+                character.element as RathenaElement,
+
+            race2:
+                character.race2,
+
             stats,
 
             combatStats,
@@ -516,6 +534,9 @@ export class CombatStateBuilder {
 
             race:
                 mob.race,
+
+            race2:
+                [],
 
             class:
                 mob.class,

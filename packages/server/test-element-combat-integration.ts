@@ -25,6 +25,10 @@ const attacker: PlayerCombatSnapshot = {
     characterId: "char-1",
     name: "Hero",
     jobKey: "KNIGHT",
+    race: "Human",
+    class: "Knight",
+    element: "Neutral",
+    race2: [],
     stats: {
         str: 50,
         agi: 20,

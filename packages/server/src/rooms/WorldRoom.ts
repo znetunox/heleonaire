@@ -23,6 +23,10 @@ import { resolveBasicAttackComponents } from "../game/combat/basicAttackResolver
 import { resolveEffectiveAttackElement } from "../game/combat/effectiveAttackElementResolver";
 
 import { combatSystem } from "../game/combat/CombatSystem";
+import type {
+    CombatClassification,
+    AttackFlags,
+} from "../game/combat/combatTypes";
 import prisma from "../db/prisma";
 import { MAP_DEFS } from "../maps/mapDefs";
 import {
@@ -1893,6 +1897,18 @@ export class WorldRoom extends Room<WorldState> {
                 jobKey:
                     player.jobKey,
 
+                race:
+                    player.race,
+
+                class:
+                    player.class,
+
+                element:
+                    player.element,
+
+                race2:
+                    player.race2,
+
                 level:
                     player.level,
 
@@ -2037,6 +2053,58 @@ export class WorldRoom extends Room<WorldState> {
         // usesAmmo = false
         //
 
+        const attackElement =
+            resolveEffectiveAttackElement(
+                playerSnapshot.weapon?.element ?? "Neutral",
+                {},
+            );
+
+        const classification: CombatClassification = {
+            attacker: {
+                race:
+                    playerSnapshot.race,
+                class:
+                    playerSnapshot.class,
+                element:
+                    playerSnapshot.element as RathenaElement,
+                race2:
+                    playerSnapshot.race2,
+            },
+            target: {
+                race:
+                    mobSnapshot.race,
+                race2:
+                    mobSnapshot.race2,
+                class:
+                    mobSnapshot.class,
+                element:
+                    mobSnapshot.element as RathenaElement,
+                elementLevel:
+                    mobSnapshot.elementLevel,
+                size:
+                    mobSnapshot.size,
+            },
+            attack: {
+                element:
+                    attackElement,
+                rangeType:
+                    "short",
+                type:
+                    "weapon",
+                hand:
+                    "right",
+            },
+        };
+
+        const flags: AttackFlags = {
+            ignoreAttackerCardfix:
+                false,
+            ignoreDefenderCardfix:
+                false,
+            ignoreElementCardfix:
+                false,
+        };
+
         const damageResult =
             combatSystem.performWeaponAttack({
                 attacker:
@@ -2044,11 +2112,7 @@ export class WorldRoom extends Room<WorldState> {
                 target:
                     mobSnapshot,
                 components,
-                attackElement:
-                    resolveEffectiveAttackElement(
-                        playerSnapshot.weapon?.element ?? "Neutral",
-                        {},
-                    ),
+                attackElement,
                 targetElement:
                     mobSnapshot.element as RathenaElement,
                 targetElementLevel:
@@ -2063,6 +2127,8 @@ export class WorldRoom extends Room<WorldState> {
                     isCrit,
                 usesAmmo:
                     false,
+                classification,
+                flags,
             });
 
         const finalDamage =
@@ -2585,7 +2651,10 @@ export class WorldRoom extends Room<WorldState> {
             player.id = client.sessionId;
             player.characterId = char.id;
             player.name = char.name;
+            player.race = "Human";
             player.class = char.classKey;
+            player.element = "Neutral";
+            player.race2 = [];
             player.jobKey = char.jobKey;
             player.faction = char.faction;
 

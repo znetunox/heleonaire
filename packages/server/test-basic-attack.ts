@@ -67,6 +67,10 @@ if (derived.statusAtk !== 122) {
         characterId: "test-character",
         name: "Test",
         jobKey: "KNIGHT",
+        race: "Human",
+        class: "Knight",
+        element: "Neutral",
+        race2: [],
         stats,
 
         combatStats: {

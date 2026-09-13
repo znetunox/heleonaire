@@ -94,6 +94,11 @@ export interface PlayerCombatSnapshot {
     name: string;
     jobKey: string;
 
+    race: string;
+    class: string;
+    element: RathenaElement;
+    race2: readonly string[];
+
     stats: CharacterStatValues;
     combatStats: CombatStats;
 
@@ -195,6 +200,7 @@ export interface MobCombatSnapshot {
 
     size: string;
     race: string;
+    race2: readonly string[];
     class: string;
     element: string;
     elementLevel: number;
@@ -281,8 +287,8 @@ export interface AttackContext {
     isCritical: boolean;
     usesAmmo: boolean;
 
-    classification?: CombatClassification;
-    flags?: AttackFlags;
+    classification: CombatClassification;
+    flags: AttackFlags;
 }
 
 export interface DefenseContext {
