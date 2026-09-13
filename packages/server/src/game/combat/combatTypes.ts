@@ -127,6 +127,23 @@ export interface PlayerCombatSnapshot {
     weaponAtkRate: number;
 
     /**
+     * Renewal percentage of target RES ignored by the attack.
+     */
+    ignoreRes: number;
+
+    /**
+     * Renewal percentage of DEF1 and DEF2 ignored by the attack.
+     */
+    ignoreDefRate: number;
+
+    ignoreDefByRace: Record<string, number>;
+    ignoreDefByClass: Record<string, number>;
+
+    defPiercingByRace: Record<string, boolean>;
+    defPiercingByElement: Record<string, boolean>;
+    defPiercingByClass: Record<string, boolean>;
+
+    /**
      * Renewal bWeaponDamageRate.
      *
      * Kept indexed by rAthena weapon type.
@@ -173,8 +190,55 @@ export interface MobCombatSnapshot {
 
     size: string;
     race: string;
+    class: string;
     element: string;
     elementLevel: number;
+}
+
+export type CombatAttackType =
+    | "weapon"
+    | "magic"
+    | "misc";
+
+export type CombatAttackRangeType =
+    | "short"
+    | "long";
+
+export type CombatAttackHand =
+    | "right"
+    | "left"
+    | "both"
+    | "none";
+
+export interface CombatClassification {
+    attacker: {
+        race?: string;
+        race2: readonly string[];
+        class?: string;
+        element?: RathenaElement;
+    };
+
+    target: {
+        race?: string;
+        race2: readonly string[];
+        class?: string;
+        element?: RathenaElement;
+        elementLevel?: number;
+        size?: string;
+    };
+
+    attack: {
+        element: RathenaElement;
+        rangeType: CombatAttackRangeType;
+        type: CombatAttackType;
+        hand: CombatAttackHand;
+    };
+}
+
+export interface AttackFlags {
+    ignoreAttackerCardfix: boolean;
+    ignoreDefenderCardfix: boolean;
+    ignoreElementCardfix: boolean;
 }
 
 export interface CombatSnapshot {
@@ -199,13 +263,21 @@ export interface AttackContext {
     statusElement?: RathenaElement;
     targetElement: RathenaElement;
     targetElementLevel: number;
+    defPiercing?: boolean;
+    ignoreDef?: boolean;
+    simpleDefense?: boolean;
     attributeTable?: ParsedAttributeTable;
+    ignoreResRate?: number;
+    ignoreRes?: boolean;
 
     skillRatio: number;
     skillConstant: number;
     skillId: number;
     isCritical: boolean;
     usesAmmo: boolean;
+
+    classification?: CombatClassification;
+    flags?: AttackFlags;
 }
 
 export interface DefenseContext {
@@ -219,6 +291,8 @@ export interface DefenseContext {
      * Final skill ratio used by the physical DEF calculation.
      */
     skillRatio: number;
+
+    ignoreDefRate?: number;
 
     /**
      * Whether the attack uses DEF piercing.
@@ -268,4 +342,16 @@ export interface DamageResult {
     preDefenseDamage: number;
     postResistanceDamage: number;
     postDefenseDamage: number;
+
+    /**
+     * Damage before elemental adjustment.
+     * Element is applied AFTER RES/DEF/Post-DEF per Renewal.
+     */
+    preElementDamage?: number;
+
+    /**
+     * Damage after elemental adjustment.
+     * This is the damage after element type interaction.
+     */
+    postElementDamage?: number;
 }

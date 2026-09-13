@@ -57,6 +57,7 @@ function parseMobs(filePath: string): Map<number, RathenaMob> {
       chaseRange: raw.ChaseRange ?? 12,
       size: raw.Size ?? 'Small',
       race: raw.Race ?? 'Formless',
+      class: raw.Class ?? 'Normal',
       element: raw.Element ?? 'Neutral',
       elementLevel: raw.ElementLevel ?? 1,
       walkSpeed: raw.WalkSpeed ?? 200,

@@ -104,6 +104,13 @@ export class ItemUseService {
                 case "weaponDamageRate":
                 case "patk":
                 case "patkRate":
+                case "ignoreRes":
+                case "ignoreDefRate":
+                case "ignoreDefByRace":
+                case "ignoreDefByClass":
+                case "defPiercingByRace":
+                case "defPiercingByElement":
+                case "defPiercingByClass":
                 case "weaponAtkByType":
                     hasUnsupportedCombatEffect = true;
                 case "def":
@@ -222,6 +229,13 @@ export class ItemUseService {
                 case "weaponDamageRate":
                 case "patk":
                 case "patkRate":
+                case "ignoreRes":
+                case "ignoreDefRate":
+                case "ignoreDefByRace":
+                case "ignoreDefByClass":
+                case "defPiercingByRace":
+                case "defPiercingByElement":
+                case "defPiercingByClass":
                 case "weaponAtkByType":
                 /*
                  * J� foram rejeitados na valida��o anterior.

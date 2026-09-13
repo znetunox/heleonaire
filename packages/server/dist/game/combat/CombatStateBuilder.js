@@ -1,6 +1,7 @@
 import { statusService, } from "../status/StatusService";
 import { EquipmentService, } from "../equipment/EquipmentService";
 import { StatSystem, } from "../stats/StatSystem";
+import { calculateEffectivePatk, } from "./attackCalculator";
 export class CombatStateBuilder {
     constructor(prisma, statuses = statusService) {
         this.prisma = prisma;
@@ -104,7 +105,7 @@ export class CombatStateBuilder {
              * bPAtk e bPAtkRate serão aplicados em uma etapa
              * própria quando fecharmos o modelo de P.ATK.
              */
-            patk: derived.patk,
+            patk: calculateEffectivePatk(derived.patk, equipmentModifiers.patk, equipmentModifiers.patkRate),
             def1: derived.def1,
             def2: derived.def2,
             res: 0,
@@ -184,25 +185,9 @@ export class CombatStateBuilder {
             ...(equipmentModifiers.weaponDamageRateByType ?? {}),
         };
         /*
-         * ---------------------------------------------------------
-         * 9. P.ATK equipment modifiers
-         * ---------------------------------------------------------
-         *
-         * NÃO aplicamos matematicamente ainda.
-         *
-         * O EquipmentService já coleta:
-         *
-         *     bPAtk
-         *     bPAtkRate
-         *
-         * mas o CombatStats atual não possui esses campos e o
-         * StatSystem ainda retorna patk = 0.
-         *
-         * Portanto, não vamos esconder esses valores nem
-         * aplicá-los em lugar incorreto.
-         *
-         * A integração definitiva será feita quando o modelo
-         * de P.ATK for fechado.
+         * P.ATK já foi materializado em combatStats.patk.
+         * O estágio de dano aplica-o depois do elemento e antes
+         * de masteryAtk, como no Renewal.
          */
         /*
          * ---------------------------------------------------------
@@ -219,6 +204,13 @@ export class CombatStateBuilder {
             ammoAtk,
             atkRate,
             weaponAtkRate,
+            ignoreRes: equipmentModifiers.ignoreRes,
+            ignoreDefRate: equipmentModifiers.ignoreDefRate,
+            ignoreDefByRace: equipmentModifiers.ignoreDefByRace,
+            ignoreDefByClass: equipmentModifiers.ignoreDefByClass,
+            defPiercingByRace: equipmentModifiers.defPiercingByRace,
+            defPiercingByElement: equipmentModifiers.defPiercingByElement,
+            defPiercingByClass: equipmentModifiers.defPiercingByClass,
             weaponDamageRateByType,
             weaponAtkByType,
             weapon,
@@ -289,6 +281,7 @@ export class CombatStateBuilder {
             attackRange: mob.attackRange,
             size: mob.size,
             race: mob.race,
+            class: mob.class,
             element: mob.element,
             elementLevel: mob.elementLevel,
         };

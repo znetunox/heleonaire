@@ -4,7 +4,12 @@ import {
 
 import {
     calculateDefenseReduction,
+    resolveDefPiercing,
 } from "./defenseCalculator";
+
+import {
+    combatConfig,
+} from "./combatConfig";
 
 import {
     calculateResistanceReduction,
@@ -19,8 +24,13 @@ import {
 } from "./criticalCalculator";
 
 import {
+    getElementContext,
     calculateElementalAttackComponents,
 } from "./elementComponentCalculator";
+
+import {
+    calculateElementalDamage,
+} from "./elementDamageCalculator";
 
 import { gameDataService } from "../../services/GameDataService";
 
@@ -39,7 +49,19 @@ export class CombatSystem {
             context.attributeTable ??
             gameDataService.getAttributeTable();
 
-        const elementalComponents =
+        // Get element context WITHOUT modifying components
+        // Element will be applied AFTER RES/DEF/Post-DEF per Renewal
+        const elementContext =
+            getElementContext(
+                context.attackElement,
+                context.targetElement,
+                context.targetElementLevel,
+                attributeTable,
+                context.statusElement ?? "Neutral",
+            );
+
+        // Legacy: preserve old behavior for backwards compatibility
+        const elementalComponentsResult =
             calculateElementalAttackComponents(
                 context.components,
                 context.attacker.combatStats.batk,
@@ -48,11 +70,12 @@ export class CombatSystem {
                 context.targetElementLevel,
                 attributeTable,
                 context.statusElement ?? "Neutral",
-            ).output;
+            );
 
+        // Composition uses the ORIGINAL components (not element-modified)
         const attack =
             calculateAttackComposition(
-                elementalComponents,
+                context.components,
                 context.attacker.combatStats.patk,
                 context.attacker.atkRate,
                 context.skillRatio,
@@ -63,6 +86,9 @@ export class CombatSystem {
             calculateResistanceReduction(
                 attack.finalDamage,
                 context.target.stats.res,
+                context.ignoreResRate ??
+                context.attacker.ignoreRes,
+                context.ignoreRes ?? false,
             );
 
         const defense =
@@ -71,8 +97,32 @@ export class CombatSystem {
                 context.target.stats,
                 {
                     skillRatio: context.skillRatio,
-                    isDefPiercing: false,
-                    ignoreDef: false,
+                    isDefPiercing:
+                        context.defPiercing ??
+                        resolveDefPiercing(
+                            context.target.race,
+                            context.target.element,
+                            context.target.class,
+                            context.attacker.defPiercingByRace,
+                            context.attacker.defPiercingByElement,
+                            context.attacker.defPiercingByClass,
+                        ),
+                    ignoreDef:
+                        context.ignoreDef ?? false,
+                    simpleDefense:
+                        context.simpleDefense ?? false,
+                    weaponDefenseType:
+                        combatConfig.weaponDefenseType,
+                    ignoreDefRate:
+                        context.attacker.ignoreDefRate,
+                    targetRace:
+                        context.target.race,
+                    targetClass:
+                        context.target.class,
+                    ignoreDefByRace:
+                        context.attacker.ignoreDefByRace,
+                    ignoreDefByClass:
+                        context.attacker.ignoreDefByClass,
                 },
             );
 
@@ -81,9 +131,20 @@ export class CombatSystem {
                 defense.effectiveDef,
             );
 
+        // Apply elemental damage AFTER RES/DEF/Post-DEF (Renewal order)
+        const elementalDamage =
+            calculateElementalDamage(
+                postDefense.damage,
+                elementContext.attackElement,
+                elementContext.targetElement,
+                elementContext.targetElementLevel,
+                elementContext.attributeTable,
+            );
+
+        // Critical is applied AFTER element
         const critical =
             calculateCriticalDamage(
-                postDefense.damage,
+                elementalDamage.postElementDamage,
                 context.attacker.combatStats.crit,
                 context.isCritical,
             );
@@ -102,7 +163,7 @@ export class CombatSystem {
             components:
                 context.components,
 
-            elementalComponents,
+            elementalComponents: elementalComponentsResult.output,
 
             resistance,
 
@@ -117,8 +178,16 @@ export class CombatSystem {
             postDefenseDamage:
                 postDefense.damage,
 
+            // Elemental damage tracking
+            preElementDamage:
+                elementalDamage.preElementDamage,
+
+            postElementDamage:
+                elementalDamage.postElementDamage,
+
         };
     }
+
 }
 
 export const combatSystem =

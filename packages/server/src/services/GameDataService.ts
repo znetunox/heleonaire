@@ -35,6 +35,7 @@ export interface GameMobData {
 
     size: string;
     race: string;
+    class: string;
 
     element: string;
     elementLevel: number;
@@ -192,6 +193,7 @@ class GameDataService {
 
                 size: mob.size,
                 race: mob.race,
+                class: "Normal",
 
                 element: mob.element,
                 elementLevel: mob.elementLevel,

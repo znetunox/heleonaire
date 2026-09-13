@@ -97,9 +97,9 @@ export class ItemUseService {
         }
 
         /*
-         * ItemUseService é responsável somente pelos efeitos
-         * que podem ser aplicados através do uso de um item
-         * consumível:
+         * ItemUseService ï¿½ responsï¿½vel somente pelos efeitos
+         * que podem ser aplicados atravï¿½s do uso de um item
+         * consumï¿½vel:
          *
          *   HEAL
          *   PERCENT_HEAL
@@ -109,11 +109,11 @@ export class ItemUseService {
          * Efeitos de combate como bAtk, bAtk2, bBaseAtk,
          * bWeaponAtkRate, bWeaponDamageRate, bPAtk etc.
          * pertencem ao contexto de equipamentos/combat modifiers
-         * e não devem ser aplicados durante o consumo do item.
+         * e nï¿½o devem ser aplicados durante o consumo do item.
          *
-         * Não ignoramos esses efeitos silenciosamente.
-         * Um script que contenha efeitos de combate não é
-         * considerado um script válido para ItemUseService.
+         * Nï¿½o ignoramos esses efeitos silenciosamente.
+         * Um script que contenha efeitos de combate nï¿½o ï¿½
+         * considerado um script vï¿½lido para ItemUseService.
          */
         let hasStatusStartEffect = false;
         let hasStatusEndEffect = false;
@@ -151,14 +151,34 @@ export class ItemUseService {
                 case "weaponDamageRate":
                 case "patk":
                 case "patkRate":
+                case "ignoreRes":
+                case "ignoreDefRate":
+                case "ignoreDefByRace":
+                case "ignoreDefByClass":
+                case "defPiercingByRace":
+                case "defPiercingByElement":
+                case "defPiercingByClass":
                 case "weaponAtkByType":
+                case "addRace":
+                case "addElement":
+                case "addSize":
+                case "addRace2":
+                case "addClass":
+                case "subElement":
+                case "subDefElement":
+                case "subSize":
+                case "weaponSubSize":
+                case "subRace2":
+                case "subRace":
+                case "subClass":
+                case "defenseAgainstAttackerClass":
                     hasUnsupportedCombatEffect = true;
                 case "def":
                 case "defRate":
                 case "def2":
                 case "def2Rate":
-                    // Efeitos defensivos são efeitos de equipamento/status,
-                    // não efeitos aplicáveis diretamente pelo consumo de um item.
+                    // Efeitos defensivos sï¿½o efeitos de equipamento/status,
+                    // nï¿½o efeitos aplicï¿½veis diretamente pelo consumo de um item.
                     break;
 
                 default:
@@ -167,11 +187,11 @@ export class ItemUseService {
         }
 
         /*
-         * Combat effects são interpretados pelo parser para que
+         * Combat effects sï¿½o interpretados pelo parser para que
          * possam ser utilizados posteriormente pelo sistema de
          * equipamentos/combat modifiers.
          *
-         * Eles não devem ser aplicados pelo fluxo de uso de item.
+         * Eles nï¿½o devem ser aplicados pelo fluxo de uso de item.
          */
         if (hasUnsupportedCombatEffect) {
             return {
@@ -211,7 +231,7 @@ export class ItemUseService {
         }
 
         /*
-         * STATUS_START precisa ser aplicado antes do cálculo
+         * STATUS_START precisa ser aplicado antes do cï¿½lculo
          * dos efeitos de cura.
          */
         for (const effect of effects) {
@@ -235,8 +255,8 @@ export class ItemUseService {
         }
 
         /*
-         * STATUS_END também é aplicado antes da cura para que
-         * o cálculo final de atributos reflita o estado correto.
+         * STATUS_END tambï¿½m ï¿½ aplicado antes da cura para que
+         * o cï¿½lculo final de atributos reflita o estado correto.
          */
         for (const effect of effects) {
             if (effect.type !== "STATUS_END") {
@@ -251,8 +271,8 @@ export class ItemUseService {
 
         /*
          * STATUS_START / STATUS_END podem alterar maxHp/maxMp,
-         * ATK, etc. O WorldRoom fornece o callback responsável
-         * pelo recálculo dos atributos.
+         * ATK, etc. O WorldRoom fornece o callback responsï¿½vel
+         * pelo recï¿½lculo dos atributos.
          */
         if (
             recalculateStats &&
@@ -268,7 +288,7 @@ export class ItemUseService {
         let newMp = player.mp;
 
         /*
-         * Agora HEAL/PERCENT_HEAL usa maxHp/maxMp já
+         * Agora HEAL/PERCENT_HEAL usa maxHp/maxMp jï¿½
          * recalculados.
          */
         for (const effect of effects) {
@@ -338,9 +358,29 @@ export class ItemUseService {
                 case "weaponDamageRate":
                 case "patk":
                 case "patkRate":
+                case "ignoreRes":
+                case "ignoreDefRate":
+                case "ignoreDefByRace":
+                case "ignoreDefByClass":
+                case "defPiercingByRace":
+                case "defPiercingByElement":
+                case "defPiercingByClass":
                 case "weaponAtkByType":
+                case "addRace":
+                case "addElement":
+                case "addSize":
+                case "addRace2":
+                case "addClass":
+                case "subElement":
+                case "subDefElement":
+                case "subSize":
+                case "weaponSubSize":
+                case "subRace2":
+                case "subRace":
+                case "subClass":
+                case "defenseAgainstAttackerClass":
                     /*
-                     * Já foram rejeitados na validação anterior.
+                     * Jï¿½ foram rejeitados na validaï¿½ï¿½o anterior.
                      * Este case existe para manter o discriminated
                      * union completamente exaustivo.
                      */
@@ -348,8 +388,8 @@ export class ItemUseService {
                 case "defRate":
                 case "def2":
                 case "def2Rate":
-                    // Efeitos defensivos são efeitos de equipamento/status,
-                    // não efeitos aplicáveis diretamente pelo consumo de um item.
+                    // Efeitos defensivos sï¿½o efeitos de equipamento/status,
+                    // nï¿½o efeitos aplicï¿½veis diretamente pelo consumo de um item.
                     break;
 
                 default:
@@ -365,10 +405,10 @@ export class ItemUseService {
 
         /*
          * Um item pode ter STATUS_START/STATUS_END sem cura.
-         * Nesse caso continua sendo um uso válido.
+         * Nesse caso continua sendo um uso vï¿½lido.
          *
-         * Já um item exclusivamente de cura que não produz
-         * nenhuma alteração real não deve ser considerado
+         * Jï¿½ um item exclusivamente de cura que nï¿½o produz
+         * nenhuma alteraï¿½ï¿½o real nï¿½o deve ser considerado
          * efeito aplicado.
          */
         if (

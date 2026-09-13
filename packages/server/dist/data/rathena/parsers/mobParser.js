@@ -71,6 +71,7 @@ function parseRawMob(raw) {
         chaseRange: toNumber(raw.ChaseRange),
         size: parseSize(raw.Size),
         race: toStringValue(raw.Race),
+        class: toStringValue(raw.Class, "Normal"),
         element: toStringValue(raw.Element),
         elementLevel: toNumber(raw.ElementLevel),
         walkSpeed: toNumber(raw.WalkSpeed),

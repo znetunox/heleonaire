@@ -36,6 +36,7 @@ interface RawMobEntry {
 
   Size?: string;
   Race?: string;
+  Class?: string;
   Element?: string;
   ElementLevel?: number;
 
@@ -165,6 +166,7 @@ function parseRawMob(raw: RawMobEntry): ParsedMob {
 
     size: parseSize(raw.Size),
     race: toStringValue(raw.Race),
+    class: toStringValue(raw.Class, "Normal"),
     element: toStringValue(raw.Element),
     elementLevel: toNumber(raw.ElementLevel),
 

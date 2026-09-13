@@ -27,6 +27,7 @@ export interface RathenaMob {
   chaseRange: number;
   size: 'Small' | 'Medium' | 'Large';
   race: string;
+  class: string;
   element: string;
   elementLevel: number;
   walkSpeed: number;

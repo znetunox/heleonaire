@@ -55,6 +55,32 @@ interface EquippedItemInstance {
     script: string | null;
 }
 
+/**
+ * Cardfix modifiers provenientes de Item.script.
+ * 
+ * Mantemos cada classifica??o separada porque os efeitos
+ * correspondem a est?gios diferentes do battle_calc_cardfix()
+ * do rAthena.
+ * 
+ * Os valores s?o acumulados por chave e n?o aplicados aqui.
+ */
+export interface CardfixModifiers {
+    addRace: Record<string, number>;
+    addElement: Record<string, number>;
+    addSize: Record<string, number>;
+    addRace2: Record<string, number>;
+    addClass: Record<string, number>;
+
+    subElement: Record<string, number>;
+    subDefElement: Record<string, number>;
+    subSize: Record<string, number>;
+    weaponSubSize: Record<string, number>;
+    subRace2: Record<string, number>;
+    subRace: Record<string, number>;
+    subClass: Record<string, number>;
+    defenseAgainstAttackerClass: Record<string, number>;
+}
+
 export class EquipmentService {
 
     /**
@@ -683,10 +709,48 @@ export class EquipmentService {
             new Map<string, number>();
         let patk = 0;
         let patkRate = 0;
+        let ignoreRes = 0;
+        let ignoreDefRate = 0;
+        const ignoreDefByRace =
+            new Map<string, number>();
+        const ignoreDefByClass =
+            new Map<string, number>();
+        const defPiercingByRace =
+            new Set<string>();
+        const defPiercingByElement =
+            new Set<string>();
+        const defPiercingByClass =
+            new Set<string>();
         let def = 0;
         let defRate = 0;
         let def2 = 0;
         let def2Rate = 0;
+
+        /**
+         * Cardfix de combate proveniente de Item.script.
+         *
+         * Mantemos cada classifica??o separada porque os efeitos
+         * correspondem a est?gios diferentes do battle_calc_cardfix()
+         * do rAthena.
+         *
+         * Os valores s?o acumulados por chave e n?o aplicados aqui.
+         */
+        const cardfix: CardfixModifiers = {
+            addRace: {},
+            addElement: {},
+            addSize: {},
+            addRace2: {},
+            addClass: {},
+
+            subElement: {},
+            subDefElement: {},
+            subSize: {},
+            weaponSubSize: {},
+            subRace2: {},
+            subRace: {},
+            subClass: {},
+            defenseAgainstAttackerClass: {},
+        };
 
         /**
          * bWeaponAtk,w,n
@@ -880,6 +944,42 @@ export class EquipmentService {
                         patkRate += effect.value;
                         break;
 
+                    case "ignoreRes":
+                        ignoreRes += effect.value;
+                        break;
+
+                    case "ignoreDefRate":
+                        ignoreDefRate += effect.value;
+                        break;
+
+                    case "ignoreDefByRace":
+                        ignoreDefByRace.set(
+                            effect.key,
+                            (ignoreDefByRace.get(effect.key) ?? 0) +
+                            effect.value,
+                        );
+                        break;
+
+                    case "ignoreDefByClass":
+                        ignoreDefByClass.set(
+                            effect.key,
+                            (ignoreDefByClass.get(effect.key) ?? 0) +
+                            effect.value,
+                        );
+                        break;
+
+                    case "defPiercingByRace":
+                        defPiercingByRace.add(effect.key);
+                        break;
+
+                    case "defPiercingByElement":
+                        defPiercingByElement.add(effect.key);
+                        break;
+
+                    case "defPiercingByClass":
+                        defPiercingByClass.add(effect.key);
+                        break;
+
                     /**
                      * bWeaponAtk,w,n
                      *
@@ -912,6 +1012,84 @@ export class EquipmentService {
                     case "weaponAtk2":
                         break;
 
+                    case "addRace":
+                        cardfix.addRace[effect.key] =
+                            (cardfix.addRace[effect.key] ?? 0) +
+                            effect.value;
+                        break;
+
+                    case "addElement":
+                        cardfix.addElement[effect.key] =
+                            (cardfix.addElement[effect.key] ?? 0) +
+                            effect.value;
+                        break;
+
+                    case "addSize":
+                        cardfix.addSize[effect.key] =
+                            (cardfix.addSize[effect.key] ?? 0) +
+                            effect.value;
+                        break;
+
+                    case "addRace2":
+                        cardfix.addRace2[effect.key] =
+                            (cardfix.addRace2[effect.key] ?? 0) +
+                            effect.value;
+                        break;
+
+                    case "addClass":
+                        cardfix.addClass[effect.key] =
+                            (cardfix.addClass[effect.key] ?? 0) +
+                            effect.value;
+                        break;
+
+                    case "subElement":
+                        cardfix.subElement[effect.key] =
+                            (cardfix.subElement[effect.key] ?? 0) +
+                            effect.value;
+                        break;
+
+                    case "subDefElement":
+                        cardfix.subDefElement[effect.key] =
+                            (cardfix.subDefElement[effect.key] ?? 0) +
+                            effect.value;
+                        break;
+
+                    case "subSize":
+                        cardfix.subSize[effect.key] =
+                            (cardfix.subSize[effect.key] ?? 0) +
+                            effect.value;
+                        break;
+
+                    case "weaponSubSize":
+                        cardfix.weaponSubSize[effect.key] =
+                            (cardfix.weaponSubSize[effect.key] ?? 0) +
+                            effect.value;
+                        break;
+
+                    case "subRace2":
+                        cardfix.subRace2[effect.key] =
+                            (cardfix.subRace2[effect.key] ?? 0) +
+                            effect.value;
+                        break;
+
+                    case "subRace":
+                        cardfix.subRace[effect.key] =
+                            (cardfix.subRace[effect.key] ?? 0) +
+                            effect.value;
+                        break;
+
+                    case "subClass":
+                        cardfix.subClass[effect.key] =
+                            (cardfix.subClass[effect.key] ?? 0) +
+                            effect.value;
+                        break;
+
+                    case "defenseAgainstAttackerClass":
+                        cardfix.defenseAgainstAttackerClass[effect.key] =
+                            (cardfix.defenseAgainstAttackerClass[effect.key] ?? 0) +
+                            effect.value;
+                        break;
+
                     default:
                         break;
                 }
@@ -934,10 +1112,28 @@ export class EquipmentService {
             ),
             patk,
             patkRate,
+            ignoreRes,
+            ignoreDefRate,
+            ignoreDefByRace: Object.fromEntries(
+                ignoreDefByRace,
+            ),
+            ignoreDefByClass: Object.fromEntries(
+                ignoreDefByClass,
+            ),
+            defPiercingByRace: Object.fromEntries(
+                [...defPiercingByRace].map((key) => [key, true]),
+            ),
+            defPiercingByElement: Object.fromEntries(
+                [...defPiercingByElement].map((key) => [key, true]),
+            ),
+            defPiercingByClass: Object.fromEntries(
+                [...defPiercingByClass].map((key) => [key, true]),
+            ),
             def,
             defRate,
             def2,
             def2Rate,
+            cardfix,
         };
     }
 

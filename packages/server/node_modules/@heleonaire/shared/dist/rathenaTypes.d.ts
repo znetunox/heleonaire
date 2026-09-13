@@ -10,6 +10,7 @@ export interface RathenaMob {
     attack: number;
     attack2: number;
     defense: number;
+    resistance: number;
     magicDefense: number;
     str: number;
     agi: number;
@@ -22,6 +23,7 @@ export interface RathenaMob {
     chaseRange: number;
     size: 'Small' | 'Medium' | 'Large';
     race: string;
+    class: string;
     element: string;
     elementLevel: number;
     walkSpeed: number;

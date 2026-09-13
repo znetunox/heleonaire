@@ -1,3 +1,8 @@
+export function calculateEffectivePatk(basePatk, patkBonus, patkRate) {
+    return Math.floor((basePatk + patkBonus) *
+        (100 + patkRate) /
+        100);
+}
 export function calculateAttackComposition(components, patk, atkRate, skillRatio, skillConstant) {
     /*
      * Renewal:

@@ -8,12 +8,30 @@ export interface ResistanceResult {
 export function calculateResistanceReduction(
     damage: number,
     resistance: number,
+    ignoreResistance = 0,
+    ignoreRes = false,
 ): ResistanceResult {
     const damageBeforeResistance =
         Math.max(0, damage);
 
+    const cappedIgnoreResistance =
+        Math.min(
+            50,
+            Math.max(0, ignoreResistance),
+        );
+
     const effectiveResistance =
-        Math.max(0, Math.trunc(resistance));
+        ignoreRes
+            ? 0
+            : Math.max(
+                0,
+                Math.trunc(
+                    resistance -
+                    cappedIgnoreResistance *
+                    resistance /
+                    100,
+                ),
+            );
 
     if (
         damageBeforeResistance <= 0 ||

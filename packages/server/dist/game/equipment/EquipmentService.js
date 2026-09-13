@@ -511,6 +511,13 @@ export class EquipmentService {
         const weaponDamageRateByType = new Map();
         let patk = 0;
         let patkRate = 0;
+        let ignoreRes = 0;
+        let ignoreDefRate = 0;
+        const ignoreDefByRace = new Map();
+        const ignoreDefByClass = new Map();
+        const defPiercingByRace = new Set();
+        const defPiercingByElement = new Set();
+        const defPiercingByClass = new Set();
         let def = 0;
         let defRate = 0;
         let def2 = 0;
@@ -665,6 +672,29 @@ export class EquipmentService {
                     case "patkRate":
                         patkRate += effect.value;
                         break;
+                    case "ignoreRes":
+                        ignoreRes += effect.value;
+                        break;
+                    case "ignoreDefRate":
+                        ignoreDefRate += effect.value;
+                        break;
+                    case "ignoreDefByRace":
+                        ignoreDefByRace.set(effect.key, (ignoreDefByRace.get(effect.key) ?? 0) +
+                            effect.value);
+                        break;
+                    case "ignoreDefByClass":
+                        ignoreDefByClass.set(effect.key, (ignoreDefByClass.get(effect.key) ?? 0) +
+                            effect.value);
+                        break;
+                    case "defPiercingByRace":
+                        defPiercingByRace.add(effect.key);
+                        break;
+                    case "defPiercingByElement":
+                        defPiercingByElement.add(effect.key);
+                        break;
+                    case "defPiercingByClass":
+                        defPiercingByClass.add(effect.key);
+                        break;
                     /**
                      * bWeaponAtk,w,n
                      *
@@ -701,6 +731,13 @@ export class EquipmentService {
             weaponAtkByType: Object.fromEntries(weaponAtkByType),
             patk,
             patkRate,
+            ignoreRes,
+            ignoreDefRate,
+            ignoreDefByRace: Object.fromEntries(ignoreDefByRace),
+            ignoreDefByClass: Object.fromEntries(ignoreDefByClass),
+            defPiercingByRace: Object.fromEntries([...defPiercingByRace].map((key) => [key, true])),
+            defPiercingByElement: Object.fromEntries([...defPiercingByElement].map((key) => [key, true])),
+            defPiercingByClass: Object.fromEntries([...defPiercingByClass].map((key) => [key, true])),
             def,
             defRate,
             def2,

@@ -94,6 +94,36 @@ export type ItemEffect =
         value: number;
     }
     | {
+        type: "ignoreRes";
+        value: number;
+    }
+    | {
+        type: "ignoreDefRate";
+        value: number;
+    }
+    | {
+        type: "ignoreDefByRace";
+        key: string;
+        value: number;
+    }
+    | {
+        type: "ignoreDefByClass";
+        key: string;
+        value: number;
+    }
+    | {
+        type: "defPiercingByRace";
+        key: string;
+    }
+    | {
+        type: "defPiercingByElement";
+        key: string;
+    }
+    | {
+        type: "defPiercingByClass";
+        key: string;
+    }
+    | {
         type: "weaponAtkByType";
         weaponType: string;
         value: number;
@@ -112,6 +142,71 @@ export type ItemEffect =
     }
     | {
         type: "def2Rate";
+        value: number;
+    }
+    | {
+        type: "addRace";
+        key: string;
+        value: number;
+    }
+    | {
+        type: "addElement";
+        key: string;
+        value: number;
+    }
+    | {
+        type: "addSize";
+        key: string;
+        value: number;
+    }
+    | {
+        type: "addRace2";
+        key: string;
+        value: number;
+    }
+    | {
+        type: "addClass";
+        key: string;
+        value: number;
+    }
+    | {
+        type: "subElement";
+        key: string;
+        value: number;
+    }
+    | {
+        type: "subDefElement";
+        key: string;
+        value: number;
+    }
+    | {
+        type: "subSize";
+        key: string;
+        value: number;
+    }
+    | {
+        type: "weaponSubSize";
+        key: string;
+        value: number;
+    }
+    | {
+        type: "subRace2";
+        key: string;
+        value: number;
+    }
+    | {
+        type: "subRace";
+        key: string;
+        value: number;
+    }
+    | {
+        type: "subClass";
+        key: string;
+        value: number;
+    }
+    | {
+        type: "defenseAgainstAttackerClass";
+        key: string;
         value: number;
     };
 
@@ -682,6 +777,73 @@ export class ItemScriptInterpreter {
                     }),
                 );
 
+            case "bres_eff":
+                return this.numericEffect(
+                    call,
+                    (value) => ({
+                        type: "ignoreRes",
+                        value,
+                    }),
+                );
+
+            case "bignoredefrate":
+                return this.numericEffect(
+                    call,
+                    (value) => ({
+                        type: "ignoreDefRate",
+                        value,
+                    }),
+                );
+
+            case "bignoredefrace":
+            case "bignoredefracerate":
+                return this.parseClassificationEffect(
+                    call,
+                    (key, value) => ({
+                        type: "ignoreDefByRace",
+                        key,
+                        value,
+                    }),
+                );
+
+            case "bignoredefclass":
+            case "bignoredefclassrate":
+                return this.parseClassificationEffect(
+                    call,
+                    (key, value) => ({
+                        type: "ignoreDefByClass",
+                        key,
+                        value,
+                    }),
+                );
+
+            case "bdefratioatkrace":
+                return this.parseClassificationFlagEffect(
+                    call,
+                    (key) => ({
+                        type: "defPiercingByRace",
+                        key,
+                    }),
+                );
+
+            case "bdefratioatkele":
+                return this.parseClassificationFlagEffect(
+                    call,
+                    (key) => ({
+                        type: "defPiercingByElement",
+                        key,
+                    }),
+                );
+
+            case "bdefratioatkclass":
+                return this.parseClassificationFlagEffect(
+                    call,
+                    (key) => ({
+                        type: "defPiercingByClass",
+                        key,
+                    }),
+                );
+
             case "bweaponatk":
                 return this.parseWeaponTypeEffect(
                     call,
@@ -736,6 +898,136 @@ export class ItemScriptInterpreter {
                     call,
                     (value) => ({
                         type: "def2Rate",
+                        value,
+                    }),
+                );
+
+            case "baddrace":
+                return this.parseClassificationEffect(
+                    call,
+                    (key, value) => ({
+                        type: "addRace",
+                        key,
+                        value,
+                    }),
+                );
+
+            case "baddelement":
+                return this.parseClassificationEffect(
+                    call,
+                    (key, value) => ({
+                        type: "addElement",
+                        key,
+                        value,
+                    }),
+                );
+
+            case "baddsize":
+                return this.parseClassificationEffect(
+                    call,
+                    (key, value) => ({
+                        type: "addSize",
+                        key,
+                        value,
+                    }),
+                );
+
+            case "baddrace2":
+                return this.parseClassificationEffect(
+                    call,
+                    (key, value) => ({
+                        type: "addRace2",
+                        key,
+                        value,
+                    }),
+                );
+
+            case "baddclass":
+                return this.parseClassificationEffect(
+                    call,
+                    (key, value) => ({
+                        type: "addClass",
+                        key,
+                        value,
+                    }),
+                );
+
+            case "bsubelement":
+                return this.parseClassificationEffect(
+                    call,
+                    (key, value) => ({
+                        type: "subElement",
+                        key,
+                        value,
+                    }),
+                );
+
+            case "bsubdefelement":
+                return this.parseClassificationEffect(
+                    call,
+                    (key, value) => ({
+                        type: "subDefElement",
+                        key,
+                        value,
+                    }),
+                );
+
+            case "bsubsize":
+                return this.parseClassificationEffect(
+                    call,
+                    (key, value) => ({
+                        type: "subSize",
+                        key,
+                        value,
+                    }),
+                );
+
+            case "bweaponsubsize":
+                return this.parseClassificationEffect(
+                    call,
+                    (key, value) => ({
+                        type: "weaponSubSize",
+                        key,
+                        value,
+                    }),
+                );
+
+            case "bsubrace2":
+                return this.parseClassificationEffect(
+                    call,
+                    (key, value) => ({
+                        type: "subRace2",
+                        key,
+                        value,
+                    }),
+                );
+
+            case "bsubrace":
+                return this.parseClassificationEffect(
+                    call,
+                    (key, value) => ({
+                        type: "subRace",
+                        key,
+                        value,
+                    }),
+                );
+
+            case "bsubclass":
+                return this.parseClassificationEffect(
+                    call,
+                    (key, value) => ({
+                        type: "subClass",
+                        key,
+                        value,
+                    }),
+                );
+
+            case "bdefenseagainstattackerclass":
+                return this.parseClassificationEffect(
+                    call,
+                    (key, value) => ({
+                        type: "defenseAgainstAttackerClass",
+                        key,
                         value,
                     }),
                 );
@@ -828,6 +1120,61 @@ export class ItemScriptInterpreter {
             weaponType,
             valueArgument.value,
         );
+    }
+
+    private parseClassificationEffect(
+        call: ParsedScriptCall,
+        create: (
+            key: string,
+            value: number,
+        ) => ItemEffect,
+    ): ItemEffect | null {
+        if (call.args.length !== 2) {
+            return null;
+        }
+
+        const keyArgument = call.args[0];
+        const valueArgument = call.args[1];
+
+        if (
+            (keyArgument.type !== "identifier" &&
+                keyArgument.type !== "string") ||
+            valueArgument.type !== "number"
+        ) {
+            return null;
+        }
+
+        const key = keyArgument.value.trim();
+
+        return key
+            ? create(key, valueArgument.value)
+            : null;
+    }
+
+    private parseClassificationFlagEffect(
+        call: ParsedScriptCall,
+        create: (
+            key: string,
+        ) => ItemEffect,
+    ): ItemEffect | null {
+        if (call.args.length !== 1) {
+            return null;
+        }
+
+        const keyArgument = call.args[0];
+
+        if (
+            keyArgument.type !== "identifier" &&
+            keyArgument.type !== "string"
+        ) {
+            return null;
+        }
+
+        const key = keyArgument.value.trim();
+
+        return key
+            ? create(key)
+            : null;
     }
 
     private splitArguments(

@@ -64,6 +64,7 @@ class GameDataService {
                 chaseRange: mob.chaseRange,
                 size: mob.size,
                 race: mob.race,
+                class: "Normal",
                 element: mob.element,
                 elementLevel: mob.elementLevel,
                 walkSpeed: mob.walkSpeed,

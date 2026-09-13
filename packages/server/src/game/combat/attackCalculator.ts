@@ -2,6 +2,18 @@ import type {
     AttackComponents,
 } from "./combatTypes";
 
+export function calculateEffectivePatk(
+    basePatk: number,
+    patkBonus: number,
+    patkRate: number,
+): number {
+    return Math.floor(
+        (basePatk + patkBonus) *
+        (100 + patkRate) /
+        100,
+    );
+}
+
 export interface AttackCompositionResult {
     baseDamage: number;
     prePatkDamage: number;

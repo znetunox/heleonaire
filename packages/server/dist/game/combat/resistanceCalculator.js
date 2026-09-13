@@ -1,6 +1,12 @@
-export function calculateResistanceReduction(damage, resistance) {
+export function calculateResistanceReduction(damage, resistance, ignoreResistance = 0, ignoreRes = false) {
     const damageBeforeResistance = Math.max(0, damage);
-    const effectiveResistance = Math.max(0, Math.trunc(resistance));
+    const cappedIgnoreResistance = Math.min(50, Math.max(0, ignoreResistance));
+    const effectiveResistance = ignoreRes
+        ? 0
+        : Math.max(0, Math.trunc(resistance -
+            cappedIgnoreResistance *
+                resistance /
+                100));
     if (damageBeforeResistance <= 0 ||
         effectiveResistance <= 0) {
         return {

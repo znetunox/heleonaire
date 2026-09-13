@@ -318,6 +318,45 @@ export class ItemScriptInterpreter {
                     type: "patkRate",
                     value,
                 }));
+            case "bres_eff":
+                return this.numericEffect(call, (value) => ({
+                    type: "ignoreRes",
+                    value,
+                }));
+            case "bignoredefrate":
+                return this.numericEffect(call, (value) => ({
+                    type: "ignoreDefRate",
+                    value,
+                }));
+            case "bignoredefrace":
+            case "bignoredefracerate":
+                return this.parseClassificationEffect(call, (key, value) => ({
+                    type: "ignoreDefByRace",
+                    key,
+                    value,
+                }));
+            case "bignoredefclass":
+            case "bignoredefclassrate":
+                return this.parseClassificationEffect(call, (key, value) => ({
+                    type: "ignoreDefByClass",
+                    key,
+                    value,
+                }));
+            case "bdefratioatkrace":
+                return this.parseClassificationFlagEffect(call, (key) => ({
+                    type: "defPiercingByRace",
+                    key,
+                }));
+            case "bdefratioatkele":
+                return this.parseClassificationFlagEffect(call, (key) => ({
+                    type: "defPiercingByElement",
+                    key,
+                }));
+            case "bdefratioatkclass":
+                return this.parseClassificationFlagEffect(call, (key) => ({
+                    type: "defPiercingByClass",
+                    key,
+                }));
             case "bweaponatk":
                 return this.parseWeaponTypeEffect(call, (weaponType, value) => ({
                     type: "weaponAtkByType",
@@ -400,6 +439,36 @@ export class ItemScriptInterpreter {
             return null;
         }
         return create(weaponType, valueArgument.value);
+    }
+    parseClassificationEffect(call, create) {
+        if (call.args.length !== 2) {
+            return null;
+        }
+        const keyArgument = call.args[0];
+        const valueArgument = call.args[1];
+        if ((keyArgument.type !== "identifier" &&
+            keyArgument.type !== "string") ||
+            valueArgument.type !== "number") {
+            return null;
+        }
+        const key = keyArgument.value.trim();
+        return key
+            ? create(key, valueArgument.value)
+            : null;
+    }
+    parseClassificationFlagEffect(call, create) {
+        if (call.args.length !== 1) {
+            return null;
+        }
+        const keyArgument = call.args[0];
+        if (keyArgument.type !== "identifier" &&
+            keyArgument.type !== "string") {
+            return null;
+        }
+        const key = keyArgument.value.trim();
+        return key
+            ? create(key)
+            : null;
     }
     splitArguments(expression) {
         const argumentsList = [];
