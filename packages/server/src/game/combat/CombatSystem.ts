@@ -42,9 +42,26 @@ import { gameDataService } from "../../services/GameDataService";
 import type {
     AttackContext,
     DamageResult,
+    PlayerCombatSnapshot,
+    MobCombatSnapshot,
 } from "./combatTypes";
 
 export class CombatSystem {
+
+    /**
+     * Obtém CombatStats do alvo, independentemente se é Player ou Mob.
+     * 
+     * PlayerCombatSnapshot tem combatStats: CombatStats
+     * MobCombatSnapshot tem stats: CombatStats
+     */
+    private getTargetCombatStats(
+        target: PlayerCombatSnapshot | MobCombatSnapshot,
+    ): any {
+        if ("combatStats" in target) {
+            return (target as PlayerCombatSnapshot).combatStats;
+        }
+        return (target as MobCombatSnapshot).stats;
+    }
 
     performWeaponAttack(
         context: AttackContext,
@@ -119,10 +136,12 @@ export class CombatSystem {
                 context.skillConstant,
             );
 
+        const targetCombatStats = this.getTargetCombatStats(context.target);
+
         const resistance =
             calculateResistanceReduction(
                 attack.finalDamage,
-                context.target.stats.res,
+                targetCombatStats.res,
                 context.ignoreResRate ??
                 context.attacker.ignoreRes,
                 context.ignoreRes ?? false,
@@ -131,7 +150,7 @@ export class CombatSystem {
         const defense =
             calculateDefenseReduction(
                 resistance.damageAfterResistance,
-                context.target.stats,
+                targetCombatStats,
                 {
                     skillRatio: context.skillRatio,
                     isDefPiercing:

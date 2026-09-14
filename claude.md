@@ -668,6 +668,34 @@ Do not duplicate data structures that already exist.
 
 ---
 
+### Local rAthena Reference Checkout
+
+The repository contains a local rAthena checkout used as a reference for mechanics and data:
+
+* Local path: `./rathena-master`
+* Database reference data: `./rathena-master/db/re`
+* Source reference: `./rathena-master/src/map`
+* Important source files may include `status.cpp`, `battle.cpp`, and related files.
+
+The local rAthena checkout is reference material only. It is NOT the source of truth for Heleonaire architecture or implementation.
+
+When auditing a mechanic or formula that originated from rAthena:
+
+1. Inspect the relevant Heleonaire implementation first.
+2. Inspect the corresponding local rAthena source/data when literal rAthena behavior must be verified.
+3. Distinguish clearly between:
+
+   * literal rAthena behavior;
+   * Heleonaire's current implementation;
+   * proposed adaptation for Heleonaire.
+4. Do not assume that a formula from external knowledge, documentation, or memory matches the local rAthena checkout.
+5. When the local rAthena source can provide direct evidence, prefer it over inference or general Ragnarok knowledge.
+6. Do not modify files under `rathena-master` unless explicitly requested.
+7. Do not copy rAthena architecture directly into Heleonaire; adapt mechanics to Heleonaire's existing architecture.
+
+
+---
+
 # 23. GAME FORMULAS
 
 When implementing Ragnarok-inspired formulas:
