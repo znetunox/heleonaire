@@ -1,5 +1,6 @@
 import type {
     CharacterStatValues,
+    CharacterTraitValues,
 } from "../stats/StatSystem";
 import type {
     CardfixModifiers,
@@ -102,6 +103,7 @@ export interface PlayerCombatSnapshot {
     race2: readonly string[];
 
     stats: CharacterStatValues;
+    traitStats: CharacterTraitValues;
     combatStats: CombatStats;
 
     /**

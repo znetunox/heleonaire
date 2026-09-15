@@ -45,6 +45,14 @@ function createPlayerSnapshot(): PlayerCombatSnapshot {
             dex: 20,
             luk: 6,
         },
+        traitStats: {
+            pow: 1,
+            sta: 1,
+            wis: 1,
+            spl: 1,
+            con: 1,
+            crt: 1,
+        },
         combatStats: {
             level: 20,
             str: 50,

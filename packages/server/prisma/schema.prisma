@@ -58,6 +58,16 @@ model Character {
   dex Int @default(1)
   luk Int @default(1)
 
+  // Trait stats
+  pow Int @default(1)
+  sta Int @default(1)
+  wis Int @default(1)
+  spl Int @default(1)
+  con Int @default(1)
+  crt Int @default(1)
+
+  availableTraitPoints Int @default(0)
+
   // Resources
   hp    Int @default(100)
   maxHp Int @default(100)

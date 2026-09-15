@@ -1929,6 +1929,13 @@ export class WorldRoom extends Room<WorldState> {
 
                 luk:
                     player.luk,
+
+                pow: player.pow,
+                sta: player.sta,
+                wis: player.wis,
+                spl: player.spl,
+                con: player.con,
+                crt: player.crt,
             });
 
         const mobData =
@@ -2705,12 +2712,33 @@ export class WorldRoom extends Room<WorldState> {
             player.luk =
                 char.luk;
 
+            player.pow =
+                char.pow;
+
+            player.sta =
+                char.sta;
+
+            player.wis =
+                char.wis;
+
+            player.spl =
+                char.spl;
+
+            player.con =
+                char.con;
+
+            player.crt =
+                char.crt;
+
             // ─────────────────────────────────────────────────────────
             // AVAILABLE POINTS
             // ─────────────────────────────────────────────────────────
 
             player.availablePoints =
                 char.availablePoints;
+
+            player.availableTraitPoints =
+                char.availableTraitPoints;
 
             player.availableSkillPoints =
                 char.availableSkillPoints;
@@ -2927,12 +2955,22 @@ export class WorldRoom extends Room<WorldState> {
                             luk:
                                 player.luk,
 
+                            pow: player.pow,
+                            sta: player.sta,
+                            wis: player.wis,
+                            spl: player.spl,
+                            con: player.con,
+                            crt: player.crt,
+
                             // ─────────────────────────────────────────────
                             // AVAILABLE POINTS
                             // ─────────────────────────────────────────────
 
                             availablePoints:
                                 player.availablePoints,
+
+                            availableTraitPoints:
+                                player.availableTraitPoints,
 
                             availableSkillPoints:
                                 player.availableSkillPoints,

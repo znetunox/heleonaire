@@ -8,6 +8,14 @@ export type StatKey =
   | "dex"
   | "luk";
 
+export type TraitStatKey =
+  | "pow"
+  | "sta"
+  | "wis"
+  | "spl"
+  | "con"
+  | "crt";
+
 export interface CharacterStatValues {
   str: number;
   agi: number;
@@ -15,6 +23,15 @@ export interface CharacterStatValues {
   int: number;
   dex: number;
   luk: number;
+}
+
+export interface CharacterTraitValues {
+  pow: number;
+  sta: number;
+  wis: number;
+  spl: number;
+  con: number;
+  crt: number;
 }
 
 export interface DerivedStats {
@@ -41,6 +58,7 @@ export interface DerivedStats {
 
 export type StatModifiers = Partial<Record<
     | "str" | "agi" | "vit" | "int" | "dex" | "luk"
+    | "pow" | "sta" | "wis" | "spl" | "con" | "crt"
     | "atk" | "matk"
     | "defense" | "defenseRate"
     | "defense2" | "defense2Rate"

@@ -155,6 +155,12 @@ async function testEndToEnd() {
             int: character.int,
             dex: character.dex,
             luk: character.luk,
+            pow: 1,
+            sta: 1,
+            wis: 1,
+            spl: 1,
+            con: 1,
+            crt: 1,
         });
         console.log(`✓ CombatStateBuilder.buildPlayerSnapshot() criado`);
 

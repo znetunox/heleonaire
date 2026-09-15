@@ -15,6 +15,7 @@ import {
 import {
     StatSystem,
     type CharacterStatValues,
+    type CharacterTraitValues,
 } from "../stats/StatSystem";
 
 import type {
@@ -50,6 +51,13 @@ export interface CombatCharacterInput {
     int: number;
     dex: number;
     luk: number;
+
+    pow: number;
+    sta: number;
+    wis: number;
+    spl: number;
+    con: number;
+    crt: number;
 }
 
 export class CombatStateBuilder {
@@ -130,6 +138,32 @@ export class CombatStateBuilder {
             luk:
                 character.luk +
                 (statusModifiers.luk ?? 0),
+        };
+
+        const traitStats: CharacterTraitValues = {
+            pow:
+                character.pow +
+                (statusModifiers.pow ?? 0),
+
+            sta:
+                character.sta +
+                (statusModifiers.sta ?? 0),
+
+            wis:
+                character.wis +
+                (statusModifiers.wis ?? 0),
+
+            spl:
+                character.spl +
+                (statusModifiers.spl ?? 0),
+
+            con:
+                character.con +
+                (statusModifiers.con ?? 0),
+
+            crt:
+                character.crt +
+                (statusModifiers.crt ?? 0),
         };
 
         /*
@@ -365,6 +399,8 @@ export class CombatStateBuilder {
                 character.race2,
 
             stats,
+
+            traitStats,
 
             combatStats,
 

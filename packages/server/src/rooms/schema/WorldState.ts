@@ -128,6 +128,28 @@ export class Player extends Schema {
     luk: number = 1;
 
     // ─────────────────────────────────────────────────────────────
+    // TRAIT STATS
+    // ─────────────────────────────────────────────────────────────
+
+    @type("number")
+    pow: number = 1;
+
+    @type("number")
+    sta: number = 1;
+
+    @type("number")
+    wis: number = 1;
+
+    @type("number")
+    spl: number = 1;
+
+    @type("number")
+    con: number = 1;
+
+    @type("number")
+    crt: number = 1;
+
+    // ─────────────────────────────────────────────────────────────
     // ATTRIBUTE POINTS
     // ─────────────────────────────────────────────────────────────
 
@@ -138,6 +160,9 @@ export class Player extends Schema {
      */
     @type("number")
     availablePoints: number = 0;
+
+    @type("number")
+    availableTraitPoints: number = 0;
 
     // ─────────────────────────────────────────────────────────────
     // DERIVED COMBAT STATS
